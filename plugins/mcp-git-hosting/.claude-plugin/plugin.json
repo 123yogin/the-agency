@@ -1,0 +1,35 @@
+{
+  "name": "mcp-git-hosting",
+  "version": "1.0.0",
+  "description": "GitHub and GitLab MCP servers: PRs, issues, CI logs, reviews.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ],
+  "defaultEnabled": false,
+  "userConfig": {
+    "github_token": {
+      "type": "string",
+      "title": "GitHub personal access token",
+      "description": "Fine-grained PAT from github.com/settings/tokens. Leave empty and disable 'github' in /mcp if you don't use GitHub.",
+      "sensitive": true
+    },
+    "gitlab_token": {
+      "type": "string",
+      "title": "GitLab personal access token",
+      "description": "PAT with api scope from GitLab > Preferences > Access tokens. Leave empty if you don't use GitLab.",
+      "sensitive": true
+    },
+    "gitlab_api_url": {
+      "type": "string",
+      "title": "GitLab API URL",
+      "description": "Your GitLab API base URL.",
+      "default": "https://gitlab.com/api/v4"
+    }
+  }
+}

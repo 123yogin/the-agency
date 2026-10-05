@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "stripe": { "type": "http", "url": "https://mcp.stripe.com" },
+    "n8n": {
+      "command": "npx",
+      "args": ["-y", "n8n-mcp@latest"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "N8N_API_URL": "${user_config.n8n_api_url}",
+        "N8N_API_KEY": "${user_config.n8n_api_key}"
+      }
+    },
+    "posthog": {
+      "type": "http",
+      "url": "https://mcp.posthog.com/mcp",
+      "headers": { "Authorization": "Bearer ${user_config.posthog_api_key}" }
+    },
+    "google-analytics": {
+      "command": "uvx",
+      "args": ["analytics-mcp"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "${user_config.ga_credentials_file}",
+        "GOOGLE_PROJECT_ID": "${user_config.ga_project_id}"
+      }
+    }
+  }
+}

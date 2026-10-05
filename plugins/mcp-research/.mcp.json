@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "tavily": { "type": "http", "url": "https://mcp.tavily.com/mcp" },
+    "firecrawl": {
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp@latest"],
+      "env": { "FIRECRAWL_API_KEY": "${user_config.firecrawl_api_key}" }
+    },
+    "searxng": {
+      "command": "npx",
+      "args": ["-y", "mcp-searxng@latest"],
+      "env": { "SEARXNG_URL": "${user_config.searxng_url}" }
+    }
+  }
+}

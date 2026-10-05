@@ -1,0 +1,8 @@
+{
+  "name": "engineering",
+  "version": "1.0.0",
+  "description": "27 engineering agents: evidence-gated reviewers (general, pre-ship, React, TypeScript, Python, Go, Rust, Postgres, security, AI-generated code, Terraform), test-first implementers (backend, frontend, React Native, Capacitor), and verified build, perf, cleanup, CI, deploy, logs, SRE and mobile-release specialists.",
+  "author": { "name": "Yogin Parmar", "url": "https://github.com/123yogin" },
+  "license": "MIT",
+  "keywords": ["code-review", "security", "testing", "devops", "mobile", "capacitor", "react", "python", "go", "rust", "postgres", "terraform"]
+}

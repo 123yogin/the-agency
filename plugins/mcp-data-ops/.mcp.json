@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "postgres-pro": {
+      "command": "uvx",
+      "args": [
+        "--python",
+        "3.12",
+        "--with",
+        "mcp<2",
+        "postgres-mcp",
+        "--access-mode=restricted"
+      ],
+      "env": {
+        "DATABASE_URI": "${user_config.postgres_uri}"
+      }
+    },
+    "grafana": {
+      "command": "uvx",
+      "args": [
+        "mcp-grafana"
+      ],
+      "env": {
+        "GRAFANA_URL": "${user_config.grafana_url}",
+        "GRAFANA_SERVICE_ACCOUNT_TOKEN": "${user_config.grafana_token}"
+      }
+    }
+  }
+}

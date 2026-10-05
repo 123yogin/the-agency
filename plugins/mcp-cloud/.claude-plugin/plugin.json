@@ -1,0 +1,15 @@
+{
+  "name": "mcp-cloud",
+  "version": "1.0.0",
+  "description": "Cloud and infra MCP servers that reuse credentials you already have: Supabase (OAuth, read-only), Kubernetes (kubeconfig, read-only), AWS (your AWS profile, read-only) plus AWS docs, Terraform registry docs.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ],
+  "defaultEnabled": false
+}

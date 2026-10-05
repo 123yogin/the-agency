@@ -1,0 +1,29 @@
+{
+  "name": "mcp-creative",
+  "version": "1.0.0",
+  "description": "Open-source design and media: Penpot (Figma alternative), ComfyUI (local image/video/audio generation), Blender (3D), plus Figma context and fal (paid cloud video models).",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ],
+  "defaultEnabled": false,
+  "userConfig": {
+    "figma_api_key": {
+      "type": "string",
+      "title": "Figma personal access token",
+      "description": "Figma > Settings > Security > Personal access tokens. Leave empty if you use Penpot only.",
+      "sensitive": true
+    },
+    "fal_key": {
+      "type": "string",
+      "title": "fal API key",
+      "description": "fal.ai > Dashboard > Keys. Paid per generation. Leave empty to stay fully local with ComfyUI.",
+      "sensitive": true
+    }
+  }
+}

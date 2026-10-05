@@ -1,0 +1,2 @@
+anthropic>=0.39.0
+mcp>=1.1.0,<2  # modified by the-agency: mcp 2.x renamed streamablehttp_client, which connections.py imports

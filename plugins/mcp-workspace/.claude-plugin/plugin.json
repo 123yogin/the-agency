@@ -1,0 +1,40 @@
+{
+  "name": "mcp-workspace",
+  "version": "1.0.0",
+  "description": "Notion, Google Workspace (Gmail, Calendar, Drive, Docs, Sheets) and Slack MCP servers.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ],
+  "defaultEnabled": false,
+  "userConfig": {
+    "notion_token": {
+      "type": "string",
+      "title": "Notion integration token",
+      "description": "Create an internal integration at notion.so/profile/integrations and share pages with it. Leave empty if unused.",
+      "sensitive": true
+    },
+    "google_oauth_client_id": {
+      "type": "string",
+      "title": "Google OAuth client ID",
+      "description": "Google Cloud Console > APIs & Services > Credentials > OAuth client ID (Desktop app). Leave empty if unused."
+    },
+    "google_oauth_client_secret": {
+      "type": "string",
+      "title": "Google OAuth client secret",
+      "description": "From the same OAuth client.",
+      "sensitive": true
+    },
+    "slack_token": {
+      "type": "string",
+      "title": "Slack user token (xoxp-)",
+      "description": "Create a Slack app, add user scopes, install it, copy the User OAuth Token. Leave empty if unused.",
+      "sensitive": true
+    }
+  }
+}

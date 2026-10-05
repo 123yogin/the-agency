@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "chrome-devtools": { "command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"] },
+    "playwright": { "command": "npx", "args": ["-y", "@playwright/mcp@latest"] },
+    "context7": { "command": "npx", "args": ["-y", "@upstash/context7-mcp@latest"] },
+    "codebase-memory": { "command": "npx", "args": ["-y", "codebase-memory-mcp@latest"] },
+    "ast-grep": { "command": "uvx", "args": ["--from", "git+https://github.com/ast-grep/ast-grep-mcp", "ast-grep-server"] },
+    "repomix": { "command": "npx", "args": ["-y", "repomix@latest", "--mcp"] },
+    "dbhub": {
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub@latest", "--transport", "stdio", "--config", "${CLAUDE_PLUGIN_ROOT}/config/dbhub.toml"],
+      "env": { "DBHUB_DSN": "${DATABASE_URL:-sqlite:///:memory:}" }
+    },
+    "mobile": { "command": "npx", "args": ["-y", "@mobilenext/mobile-mcp@latest"] },
+    "markitdown": { "command": "uvx", "args": ["--python", "3.12", "markitdown-mcp"] },
+    "excel": { "command": "uvx", "args": ["excel-mcp-server", "stdio"] },
+    "youtube-transcript": { "command": "uvx", "args": ["--from", "git+https://github.com/jkawamoto/mcp-youtube-transcript", "mcp-youtube-transcript"] },
+    "excalidraw": { "command": "npx", "args": ["-y", "mcp-excalidraw-server@latest"] },
+    "chart": { "command": "npx", "args": ["-y", "@antv/mcp-server-chart@latest"] },
+    "shadcn-ui": { "command": "npx", "args": ["-y", "@jpisnice/shadcn-ui-mcp-server@latest"] },
+    "icons": { "command": "npx", "args": ["-y", "better-icons@latest"] }
+  }
+}

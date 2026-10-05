@@ -1,0 +1,28 @@
+{
+  "name": "mcp-research",
+  "version": "1.0.0",
+  "description": "Web search and scraping: Tavily (OAuth, free tier), Firecrawl (scrape/crawl/extract) and SearXNG (your own free private search).",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ],
+  "defaultEnabled": false,
+  "userConfig": {
+    "firecrawl_api_key": {
+      "type": "string",
+      "title": "Firecrawl API key",
+      "description": "firecrawl.dev > API keys (fc-...). Leave empty if unused.",
+      "sensitive": true
+    },
+    "searxng_url": {
+      "type": "string",
+      "title": "SearXNG URL",
+      "description": "URL of a SearXNG instance you run, e.g. http://localhost:8080. Leave empty if unused."
+    }
+  }
+}

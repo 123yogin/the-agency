@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp?read_only=true" },
+    "kubernetes": { "command": "npx", "args": ["-y", "kubernetes-mcp-server@latest", "--read-only"] },
+    "aws-api": {
+      "command": "uvx",
+      "args": ["awslabs.aws-api-mcp-server@latest"],
+      "env": { "AWS_REGION": "${AWS_REGION:-us-east-1}", "READ_OPERATIONS_ONLY": "true" }
+    },
+    "aws-knowledge": { "type": "http", "url": "https://knowledge-mcp.global.api.aws" },
+    "terraform": { "command": "docker", "args": ["run", "-i", "--rm", "hashicorp/terraform-mcp-server"] }
+  }
+}

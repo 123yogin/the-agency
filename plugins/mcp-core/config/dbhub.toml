@@ -1,0 +1,10 @@
+# DBHub config shipped by mcp-core. The DSN comes from DATABASE_URL in your
+# environment (falls back to an empty in-memory SQLite). SQL is read-only.
+[[sources]]
+id = "default"
+dsn = "${DBHUB_DSN}"
+
+[[tools]]
+name = "execute_sql"
+source = "default"
+readonly = true

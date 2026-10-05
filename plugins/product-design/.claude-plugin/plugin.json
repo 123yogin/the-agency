@@ -1,0 +1,11 @@
+{
+  "name": "product-design",
+  "version": "1.0.0",
+  "description": "Product, design and research: PRDs, roadmaps, discovery, experiments, user research, interviews, feedback synthesis, market and competitor research, idea pressure-testing, UI design and finish gates, accessibility, design systems, brand, IA and ethical nudge design.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "keywords": ["product", "design", "ux", "research", "accessibility", "design-system", "prd"]
+}

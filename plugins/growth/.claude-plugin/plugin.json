@@ -1,0 +1,12 @@
+{
+  "name": "growth",
+  "version": "1.0.0",
+  "description": "Marketing, sales, support, pricing, finance and legal-triage agents and skills: SEO, AI-search visibility, ASO, copy, CRO, experiments, lifecycle email, launches (Product Hunt, Show HN, Reddit), social, outbound, retention, SaaS metrics, fundraising, privacy and policy drafts. No invented stats; no dark patterns.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "homepage": "https://github.com/123yogin/the-agency",
+  "license": "MIT",
+  "keywords": ["marketing", "seo", "aso", "growth", "sales", "support", "pricing", "launch", "legal"]
+}

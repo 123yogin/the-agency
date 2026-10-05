@@ -1,0 +1,10 @@
+{
+  "name": "guards",
+  "version": "1.0.0",
+  "description": "PreToolUse safety hooks: block --no-verify, block weakening lint/format/TypeScript-strict configs, block irreversible commands (rm -rf outside the project, force-push to main, reset --hard, DROP TABLE).",
+  "author": { "name": "Yogin Parmar", "url": "https://github.com/123yogin" },
+  "homepage": "https://github.com/123yogin/the-agency",
+  "repository": "https://github.com/123yogin/the-agency",
+  "license": "MIT",
+  "keywords": ["hooks", "safety", "guardrails", "git"]
+}

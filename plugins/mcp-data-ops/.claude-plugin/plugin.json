@@ -1,0 +1,34 @@
+{
+  "name": "mcp-data-ops",
+  "version": "1.0.0",
+  "description": "Postgres tuning (EXPLAIN, index advice, health, restricted mode) and Grafana (Prometheus, Loki, dashboards, alerts).",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ],
+  "defaultEnabled": false,
+  "userConfig": {
+    "postgres_uri": {
+      "type": "string",
+      "title": "Postgres connection URI",
+      "description": "postgresql://user:pass@host:5432/db. Use a read-only role. Leave empty if unused.",
+      "sensitive": true
+    },
+    "grafana_url": {
+      "type": "string",
+      "title": "Grafana URL",
+      "description": "e.g. http://localhost:3000 or https://you.grafana.net. Leave empty if unused."
+    },
+    "grafana_token": {
+      "type": "string",
+      "title": "Grafana service account token",
+      "description": "Grafana > Administration > Service accounts > Add token (Viewer role is enough).",
+      "sensitive": true
+    }
+  }
+}

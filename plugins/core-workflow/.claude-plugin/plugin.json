@@ -1,0 +1,10 @@
+{
+  "name": "core-workflow",
+  "version": "1.0.0",
+  "description": "Disciplined development workflow: brainstorm, plan, execute with subagents, TDD, systematic debugging, verification before completion, code review, git worktrees, handoffs.",
+  "author": { "name": "Yogin Parmar", "url": "https://github.com/123yogin" },
+  "homepage": "https://github.com/123yogin/the-agency",
+  "repository": "https://github.com/123yogin/the-agency",
+  "license": "MIT",
+  "keywords": ["workflow", "tdd", "debugging", "planning", "code-review", "subagents"]
+}

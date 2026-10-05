@@ -1,0 +1,44 @@
+{
+  "name": "mcp-business",
+  "version": "1.0.0",
+  "description": "Stripe (OAuth), n8n workflow automation, PostHog product analytics and Google Analytics 4 reporting.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ],
+  "defaultEnabled": false,
+  "userConfig": {
+    "n8n_api_url": {
+      "type": "string",
+      "title": "n8n URL",
+      "description": "Your n8n instance URL, e.g. https://n8n.example.com. Leave empty for docs-only mode."
+    },
+    "n8n_api_key": {
+      "type": "string",
+      "title": "n8n API key",
+      "description": "n8n > Settings > n8n API > Create key. Optional: without it n8n-mcp still serves node docs and validation.",
+      "sensitive": true
+    },
+    "posthog_api_key": {
+      "type": "string",
+      "title": "PostHog personal API key",
+      "description": "PostHog > Settings > Personal API keys (phx_...). Leave empty if unused.",
+      "sensitive": true
+    },
+    "ga_credentials_file": {
+      "type": "file",
+      "title": "Google credentials JSON",
+      "description": "Application Default Credentials file (gcloud auth application-default login --scopes ...analytics.readonly). Leave empty if unused."
+    },
+    "ga_project_id": {
+      "type": "string",
+      "title": "Google Cloud project ID",
+      "description": "Project that owns the credentials."
+    }
+  }
+}

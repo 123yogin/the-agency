@@ -1,0 +1,14 @@
+{
+  "name": "mcp-core",
+  "version": "1.0.0",
+  "description": "Keyless MCP servers that work right after install: browser debugging and testing, current library docs, code graph and structural search, read-only SQL, mobile device control, document/Excel/YouTube conversion, diagrams, charts, UI components and icons.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/123yogin/the-agency",
+  "keywords": [
+    "mcp"
+  ]
+}

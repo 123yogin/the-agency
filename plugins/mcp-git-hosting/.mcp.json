@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${user_config.github_token}" }
+    },
+    "gitlab": {
+      "command": "npx",
+      "args": ["-y", "@zereight/mcp-gitlab@latest"],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${user_config.gitlab_token}",
+        "GITLAB_API_URL": "${user_config.gitlab_api_url}"
+      }
+    }
+  }
+}

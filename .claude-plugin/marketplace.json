@@ -1,0 +1,140 @@
+{
+  "name": "the-agency",
+  "owner": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "metadata": {
+    "description": "A curated agency of Claude Code agents, skills and guard hooks, distilled from the best open-source collections and rewritten to one standard.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "core-workflow",
+      "source": "./plugins/core-workflow",
+      "description": "Spec, plan, TDD, systematic debugging, verification-before-done, code review and git workflow skills, with a session-start bootstrap.",
+      "version": "1.0.0",
+      "category": "workflow",
+      "license": "MIT"
+    },
+    {
+      "name": "guards",
+      "source": "./plugins/guards",
+      "description": "PreToolUse hooks that block --no-verify, weakening lint/type configs, and destructive commands.",
+      "version": "1.0.0",
+      "category": "safety",
+      "license": "MIT"
+    },
+    {
+      "name": "engineering",
+      "source": "./plugins/engineering",
+      "description": "Evidence-gated reviewers, minimal-diff fixers, implementers and ops agents across web, mobile, backend and infra.",
+      "version": "1.0.0",
+      "category": "engineering",
+      "license": "MIT"
+    },
+    {
+      "name": "product-design",
+      "source": "./plugins/product-design",
+      "description": "PRDs, discovery, research synthesis, UX research, design critique, accessibility and brand.",
+      "version": "1.0.0",
+      "category": "product",
+      "license": "MIT"
+    },
+    {
+      "name": "growth",
+      "source": "./plugins/growth",
+      "description": "SEO, AEO, ASO, copy, CRO, launches, community, lifecycle email, sales, support, pricing and fundraising.",
+      "version": "1.0.0",
+      "category": "business",
+      "license": "MIT"
+    },
+    {
+      "name": "ai-data-docs",
+      "source": "./plugins/ai-data-docs",
+      "description": "MCP servers, LLM evals, RAG, prompt engineering, deep research, data and SQL analysis, docs and office files.",
+      "version": "1.0.0",
+      "category": "ai-data",
+      "license": "MIT"
+    },
+    {
+      "name": "meta",
+      "source": "./plugins/meta",
+      "description": "Write and test your own skills and agents, run agent teams, and manage context.",
+      "version": "1.0.0",
+      "category": "meta",
+      "license": "MIT"
+    },
+    {
+      "name": "mcp-core",
+      "source": "./plugins/mcp-core",
+      "description": "Keyless MCP servers that work on install: browser debugging and testing, live library docs, code graph and structural search, read-only SQL, mobile device control, document/Excel/YouTube conversion, diagrams, charts, UI components, icons.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT"
+    },
+    {
+      "name": "mcp-git-hosting",
+      "source": "./plugins/mcp-git-hosting",
+      "description": "GitHub and GitLab MCP servers.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT",
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp-cloud",
+      "source": "./plugins/mcp-cloud",
+      "description": "Read-only Supabase, Kubernetes, AWS and Terraform docs using credentials you already have.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT",
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp-data-ops",
+      "source": "./plugins/mcp-data-ops",
+      "description": "Postgres tuning in restricted mode and Grafana observability.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT",
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp-workspace",
+      "source": "./plugins/mcp-workspace",
+      "description": "Notion, Google Workspace and Slack.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT",
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp-business",
+      "source": "./plugins/mcp-business",
+      "description": "Stripe, n8n, PostHog and Google Analytics.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT",
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp-research",
+      "source": "./plugins/mcp-research",
+      "description": "Tavily, Firecrawl and SearXNG search and scraping.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT",
+      "defaultEnabled": false
+    },
+    {
+      "name": "mcp-creative",
+      "source": "./plugins/mcp-creative",
+      "description": "Penpot (open-source Figma), ComfyUI (local image/video/audio), Blender, plus optional Figma context and fal cloud models.",
+      "version": "1.0.0",
+      "category": "mcp",
+      "license": "MIT",
+      "defaultEnabled": false
+    }
+  ]
+}

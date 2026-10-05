@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "penpot": {
+      "type": "http",
+      "url": "http://localhost:4401/mcp"
+    },
+    "comfyui": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "comfyui-mcp@latest"
+      ]
+    },
+    "blender": {
+      "command": "uvx",
+      "args": [
+        "mcp-for-blender"
+      ]
+    },
+    "figma": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "figma-developer-mcp@latest",
+        "--stdio"
+      ],
+      "env": {
+        "FIGMA_API_KEY": "${user_config.figma_api_key}"
+      }
+    },
+    "fal": {
+      "command": "uvx",
+      "args": [
+        "--with",
+        "mcp<2",
+        "--from",
+        "fal-mcp-server",
+        "fal-mcp"
+      ],
+      "env": {
+        "FAL_KEY": "${user_config.fal_key}"
+      }
+    }
+  }
+}

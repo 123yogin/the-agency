@@ -1,0 +1,11 @@
+{
+  "name": "ai-data-docs",
+  "version": "1.0.0",
+  "description": "AI engineering, data and documentation: MCP servers, RAG, prompt engineering, LLM evals, fine-tuning, multi-agent design, SQL and statistical analysis, data pipelines and quality, ML production review, technical docs, office files, research and inbox triage.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "license": "MIT",
+  "keywords": ["llm", "rag", "mcp", "evals", "fine-tuning", "data", "sql", "statistics", "documentation", "research"]
+}
