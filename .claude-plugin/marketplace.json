@@ -68,8 +68,8 @@
     {
       "name": "hq",
       "source": "./plugins/hq",
-      "description": "Agency HQ: Ask the Lead (it plans, assigns agents and reports back), a 3D office of your agents, the full roster, review-before-run dispatch, and plugin/MCP health. Desktop and phone.",
-      "version": "1.1.0",
+      "description": "Agency HQ: Ask the Lead (it plans, assigns agents and reports back), a daily plan with a read-only standup you approve in one tap, a 3D office of your agents, the full roster, review-before-run dispatch, and plugin/MCP health. Desktop and phone.",
+      "version": "1.2.0",
       "category": "dashboard",
       "license": "MIT"
     },

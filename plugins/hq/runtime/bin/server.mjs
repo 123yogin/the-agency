@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Agency HQ server (Node >= 18, no npm dependencies). Normally started by bin/hq.mjs.
 // Environment: HQ_PORT, HQ_BIND (default 127.0.0.1), HQ_TOKEN (required), HQ_LAN_KEY + HQ_LAN_URL (LAN mode),
-// HQ_CLAUDE_BIN, HQ_MAX_RUNS, HQ_DATA_DIR, HQ_ALLOWED_HOSTS.
+// HQ_CLAUDE_BIN, HQ_MAX_RUNS, HQ_DATA_DIR, HQ_ALLOWED_HOSTS, HQ_NO_SCHEDULE=1 (no daily-plan schedule).
 import http from 'node:http';
 
 const major = Number(process.versions.node.split('.')[0]);
@@ -18,7 +18,7 @@ if (!token) {
 }
 const port = Number(process.env.HQ_PORT || 8790);
 const bind = process.env.HQ_BIND || '127.0.0.1';
-const app = createApp({ token, lanKey: process.env.HQ_LAN_KEY || null, lanUrl: process.env.HQ_LAN_URL || null });
+const app = createApp({ token, lanKey: process.env.HQ_LAN_KEY || null, lanUrl: process.env.HQ_LAN_URL || null, schedule: process.env.HQ_NO_SCHEDULE !== '1' });
 const server = http.createServer(app);
 server.on('error', (e) => {
   console.error(`[hq] server failed: ${e.code === 'EADDRINUSE' ? `port ${port} is in use` : e.message}`);

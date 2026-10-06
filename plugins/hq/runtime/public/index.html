@@ -31,6 +31,7 @@
   </label>
   <nav class="tabs" aria-label="Views">
     <button type="button" data-go="lead" class="lead-tab" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M5.5 20c.6-3.6 3.2-5.8 6.5-5.8s5.9 2.2 6.5 5.8"/><path d="M3 11.5l2.2 1.2M21 11.5l-2.2 1.2"/></svg><span>Ask the Lead</span><b class="count" id="leadCount" hidden></b></button>
+    <button type="button" data-go="daily"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8.5 14.5l2 2 4-4"/></svg><span>Daily plan</span><b class="count" id="dailyCount" hidden></b></button>
     <button type="button" data-go="office"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
     <button type="button" data-go="roster"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Roster</span></button>
     <button type="button" data-go="dispatch"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 5v14"/></svg><span>Dispatch</span><b class="count" id="dispatchCount" hidden></b></button>
@@ -76,6 +77,20 @@
       <div id="jobBody"></div>
       <div id="jobFoot"></div>
     </div>
+  </section>
+
+  <!-- DAILY PLAN -->
+  <section class="view page daily-page" data-view="daily" aria-labelledby="dailyH" hidden>
+    <div class="page-head">
+      <div><h1 id="dailyH">Daily plan</h1><p class="sub">Once a day the Lead reads a project, holds a standup and proposes today's plan. Only that reading, and the evening report, run by themselves. Nothing else runs until you tap Approve.</p></div>
+      <div class="dpause"><span id="pauseTxt">Daily plans are on</span><button type="button" class="switch" role="switch" id="pauseBtn" aria-checked="true" aria-label="Daily plans on"></button></div>
+    </div>
+    <form class="dadd" id="dadd" novalidate>
+      <label class="field"><span class="label">Add a project</span><select id="daily-add"></select></label>
+      <button type="submit" class="primary" id="daddBtn">Set up a daily plan</button>
+      <p class="sub">Setting up reads the project once (CLAUDE.md, README, TODO comments) to build a backlog. It stays off until you switch it on.</p>
+    </form>
+    <div id="dailyList" class="dlist" aria-live="polite"></div>
   </section>
 
   <!-- OFFICE -->
@@ -183,6 +198,7 @@
 
 <nav class="bottombar" aria-label="Views">
   <button type="button" data-go="lead" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M5.5 20c.6-3.6 3.2-5.8 6.5-5.8s5.9 2.2 6.5 5.8"/><path d="M3 11.5l2.2 1.2M21 11.5l-2.2 1.2"/></svg><span>Lead</span></button>
+  <button type="button" data-go="daily"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8.5 14.5l2 2 4-4"/></svg><span>Daily</span></button>
   <button type="button" data-go="office"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
   <button type="button" data-go="roster"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Roster</span></button>
   <button type="button" data-go="dispatch"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 5v14"/></svg><span>Dispatch</span></button>
@@ -200,6 +216,10 @@
   <p id="stopTxt"></p>
   <div class="btns"><button type="button" class="danger" id="stopGo">Stop everything</button><button type="button" class="ghost" id="stopNo">Keep running</button></div>
 </dialog>
+<dialog id="prDlg" class="dlg" aria-labelledby="prH">
+  <form method="dialog" class="dlg-head"><h2 id="prH">Open a pull request?</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
+  <div id="prBody"></div>
+</dialog>
 <dialog id="shareDlg" class="dlg" aria-labelledby="shareH">
   <form method="dialog" class="dlg-head"><h2 id="shareH">Open HQ on your phone</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
   <div id="shareBody"></div>
@@ -207,7 +227,7 @@
 <dialog id="helpDlg" class="dlg" aria-labelledby="helpH">
   <form method="dialog" class="dlg-head"><h2 id="helpH">Keyboard shortcuts</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
   <dl class="keys">
-    <dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Ask the Lead, Office, Roster, Dispatch, Health</dd>
+    <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Ask the Lead, Daily plan, Office, Roster, Dispatch, Health</dd>
     <dt><kbd>/</kbd></dt><dd>Write a goal for the Lead, search the roster, or write a task on Dispatch</dd>
     <dt><kbd>P</kbd></dt><dd>Switch project</dd>
     <dt><kbd>N</kbd></dt><dd>Show what needs you</dd>

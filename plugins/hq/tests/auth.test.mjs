@@ -128,3 +128,24 @@ test('every Ask-the-Lead action needs the token and a same-origin request', asyn
   assert.equal(list.status, 200);
   assert.deepEqual(JSON.parse(list.body).jobs, []);
 });
+
+test('every Daily plan action needs the token and a same-origin request; Open PR needs an explicit confirm', async () => {
+  const body = JSON.stringify({ enabled: true, paused: true, items: [], confirm: true });
+  const paths = ['/api/daily/pause', '/api/daily/projects/-x', '/api/daily/projects/-x/standup', '/api/daily/projects/-x/backlog', '/api/daily/projects/-x/seen', '/api/daily/branches/abcdefabcdef/pr', '/api/daily/branches/abcdefabcdef/delete'];
+  for (const p of paths) {
+    const none = await call('POST', p, { headers: JSONH, body });
+    assert.equal(none.status, 403, `${p} without a token`);
+    const cross = await call('POST', p, { headers: { ...JSONH, 'x-hq-token': TOKEN, origin: 'https://evil.example' }, body });
+    assert.equal(cross.status, 403, `${p} cross-origin`);
+  }
+  const noConfirm = await call('POST', '/api/daily/branches/abcdefabcdef/pr', { headers: { ...JSONH, 'x-hq-token': TOKEN }, body: '{}' });
+  assert.equal(noConfirm.status, 400);
+  assert.match(JSON.parse(noConfirm.body).error, /Confirm first/);
+  const list = await call('GET', '/api/daily');
+  assert.equal(list.status, 200);
+  const d = JSON.parse(list.body);
+  assert.equal(d.paused, false);
+  assert.deepEqual(d.projects, []);
+  const pause = await call('POST', '/api/daily/pause', { headers: { ...JSONH, 'x-hq-token': TOKEN }, body: '{"paused":true}' });
+  assert.deepEqual(JSON.parse(pause.body), { ok: true, paused: true });
+});

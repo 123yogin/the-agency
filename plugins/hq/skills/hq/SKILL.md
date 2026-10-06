@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Use when the user wants to see, visualise, monitor or operate their agents, hand a goal to a Lead that assigns agents automatically, open the agency dashboard or 3D office, check what agents are doing, browse what the agency can do, or open HQ on their phone. Starts Agency HQ and gives them the link.
+description: Use when the user wants to see, visualise, monitor or operate their agents, hand a goal to a Lead that assigns agents automatically, have the Lead plan their day with a daily standup, open the agency dashboard or 3D office, check what agents are doing, browse what the agency can do, or open HQ on their phone. Starts Agency HQ and gives them the link.
 ---
 
 # Agency HQ
@@ -12,6 +12,11 @@ transcripts (read-only) and shows:
   and picks agents; the user edits and approves the plan; HQ runs the agents in
   dependency order and the Lead writes a summary. Failed tasks pause their
   dependents and wait for the user.
+- **Daily plan**: per project, the Lead holds a read-only standup each morning
+  and proposes the day's plan; nothing runs until the user approves it. Code
+  changes land on local `daily/…` branches; pushing and opening a PR happen
+  only when the user clicks Open PR. A read-only evening report updates the
+  backlog. Runs only while HQ runs; no autostart.
 - **Office**: a 3D office where the Lead (main session) and every running
   subagent sit at desks named after the agent they run as, coloured by plugin.
   A red beacon and banner mean something needs the user.
@@ -39,4 +44,6 @@ running it prints the existing URL.
 - Do not copy transcript contents into replies; HQ shows file paths and
   command summaries, never file contents.
 - Dispatch never runs anything without the user pressing "Run it" in HQ.
+- Never describe the daily plan as autonomous: only the read-only standup and
+  report run by themselves; the user approves the day's work.
 - Needs Node 18 or newer. If the launcher says Node is missing, pass that on.

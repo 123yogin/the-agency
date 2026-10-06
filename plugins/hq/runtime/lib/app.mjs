@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SECURITY_HEADERS, checkAction, hostAllowed, isLoopback, lanAccess } from './auth.mjs';
 import { Dispatcher, MODES } from './dispatch.mjs';
+import { Daily } from './daily.mjs';
 import { McpStatus, prereqs, togglePlugin } from './health.mjs';
 import { Lead } from './lead.mjs';
 import { DEFAULTS, buildState } from './office.mjs';
@@ -15,14 +16,14 @@ import { route } from './routing.mjs';
 
 const RUNTIME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(RUNTIME, 'public');
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 const TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
 
 const scriptJson = (v) => JSON.stringify(v).replace(/[<>&'\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 
 export function createApp({
   token, lanKey = null, lanUrl = null, claudeBin = process.env.HQ_CLAUDE_BIN || 'claude', dataDir = defaultDataDir(),
-  maxRuns = Number(process.env.HQ_MAX_RUNS) || 4, extraHosts = process.env.HQ_ALLOWED_HOSTS || '', spawn, exec,
+  maxRuns = Number(process.env.HQ_MAX_RUNS) || 4, extraHosts = process.env.HQ_ALLOWED_HOSTS || '', spawn, exec, dailyExec, schedule = false,
 } = {}) {
   if (!token) throw new Error('createApp needs a token');
   const cacheDir = path.join(dataDir, 'cache');
@@ -30,6 +31,27 @@ export function createApp({
   const dispatcher = new Dispatcher({ dataDir, claudeBin, maxConcurrent: maxRuns, ...(spawn ? { spawn } : {}) });
   const mcp = new McpStatus({ claudeBin, ...(exec ? { exec } : {}) });
   const lead = new Lead({ dataDir, dispatcher, getAgents: () => enabledAgents() });
+  const daily = new Daily({ dataDir, lead, dispatcher, findProject, getAgents: () => enabledAgents(), ...(dailyExec ? { exec: dailyExec } : {}) });
+  // The daily schedule only runs while HQ runs: a minute tick, plus one shortly after start to catch up.
+  let timers = [];
+  if (schedule) {
+    const tick = () => {
+      try {
+        daily.tick();
+      } catch (e) {
+        console.error(`[hq] daily: ${e && e.stack ? e.stack : e}`);
+      }
+    };
+    timers = [setTimeout(tick, 4000), setInterval(tick, 60000)];
+    for (const t of timers) t.unref?.();
+  }
+
+  // Job view for the page; daily jobs carry their standup and notes.
+  const jv = (j) => {
+    const v = lead.view(j);
+    if (j.daily) v.day = daily.dayFor(j.id);
+    return v;
+  };
 
   function send(res, status, headers, body) {
     res.writeHead(status, { ...SECURITY_HEADERS, ...headers });
@@ -71,7 +93,7 @@ export function createApp({
   }
 
   function attentionAll(currentId) {
-    const out = [...lead.attention()];
+    const out = [...lead.attention(), ...daily.attention()];
     for (const r of dispatcher.list()) {
       if (r.status === 'review') out.push({ kind: 'review', run: r.id, project: r.project, text: `A task for ${r.agent} is waiting for your approval`, at: r.created });
     }
@@ -124,11 +146,14 @@ export function createApp({
       }
       if (p === '/api/roster') return json(res, 200, rosterWithUsage({ cacheDir }));
       if (p === '/api/dispatch') return json(res, 200, { runs: dispatcher.list().filter((r) => !r.job), max: dispatcher.max });
-      if (p === '/api/jobs') return json(res, 200, { jobs: lead.list(), max: dispatcher.max });
+      if (p === '/api/jobs') return json(res, 200, { jobs: lead.jobs.map(jv), max: dispatcher.max });
+      if (p === '/api/daily') return json(res, 200, { ...daily.list(), now: new Date().toISOString(), available: listProjects().filter((x) => x.exists).map((x) => ({ id: x.id, name: x.name, cwd: x.cwd })) });
+      const bp = /^\/api\/daily\/branches\/([a-f0-9]{12})\/pr$/.exec(p);
+      if (bp) return json(res, 200, daily.openPr(bp[1], { confirm: false }));
       const jm = /^\/api\/jobs\/([a-f0-9]{12})$/.exec(p);
       if (jm) {
         const j = lead.get(jm[1]);
-        return j ? json(res, 200, { job: lead.view(j) }) : fail(res, 404, 'That job no longer exists.');
+        return j ? json(res, 200, { job: jv(j) }) : fail(res, 404, 'That job no longer exists.');
       }
       if (p === '/api/health') {
         const roster = readRoster();
@@ -174,7 +199,7 @@ export function createApp({
         const project = findProject(body.project);
         if (!project) return fail(res, 400, 'Pick a project from the list.');
         const j = lead.create({ goal: body.goal, project, mode: body.mode, parallel: body.parallel ?? 2 });
-        return json(res, 200, { ok: true, job: lead.view(j) });
+        return json(res, 200, { ok: true, job: jv(j) });
       }
       const ja = /^\/api\/jobs\/([a-f0-9]{12})\/(plan|approve|replan|followup|stop|resume|finish|discard)$/.exec(p);
       if (ja) {
@@ -188,12 +213,41 @@ export function createApp({
         else if (what === 'finish') lead.finishNow(id);
         else lead.discard(id);
         const j = lead.get(id);
-        return json(res, 200, { ok: true, job: j ? lead.view(j) : null });
+        return json(res, 200, { ok: true, job: j ? jv(j) : null });
       }
       const jt = /^\/api\/jobs\/([a-f0-9]{12})\/tasks\/([A-Za-z0-9_-]{1,24})\/(cancel|retry|skip)$/.exec(p);
       if (jt) {
         lead.taskAction(jt[1], jt[2], jt[3]);
-        return json(res, 200, { ok: true, job: lead.view(lead.get(jt[1])) });
+        return json(res, 200, { ok: true, job: jv(lead.get(jt[1])) });
+      }
+      if (p === '/api/daily/pause') {
+        daily.setPaused(body.paused === true);
+        return json(res, 200, { ok: true, paused: daily.state.paused });
+      }
+      const dp = /^\/api\/daily\/projects\/([A-Za-z0-9._-]{1,255})(?:\/(standup|backlog|seen))?$/.exec(p);
+      if (dp) {
+        const [, id, what] = dp;
+        if (!what) {
+          const patch = {};
+          for (const k of ['enabled', 'standupAt', 'wrapAt', 'focus', 'maxTasks', 'maxUsd']) if (body[k] !== undefined) patch[k] = body[k];
+          return json(res, 200, { ok: true, project: daily.update(id, patch) });
+        }
+        if (what === 'standup') {
+          const j = daily.runNow(id);
+          return json(res, 200, { ok: true, job: jv(j), project: daily.view(id) });
+        }
+        if (what === 'backlog') {
+          daily.setBacklog(id, body.items);
+          return json(res, 200, { ok: true, project: daily.view(id) });
+        }
+        daily.markSeen(id);
+        return json(res, 200, { ok: true, project: daily.view(id) });
+      }
+      const db = /^\/api\/daily\/branches\/([a-f0-9]{12})\/(pr|delete)$/.exec(p);
+      if (db) {
+        if (db[2] === 'delete') return json(res, 200, { ok: true, branch: daily.deleteBranch(db[1]) });
+        if (body.confirm !== true) return fail(res, 400, 'Confirm first: HQ shows the exact commands before it pushes the branch and opens the PR.');
+        return json(res, 200, { ok: true, ...daily.openPr(db[1], { confirm: true }) });
       }
       if (p === '/api/stop-all') {
         const jobs = lead.stopAll();
@@ -257,6 +311,8 @@ export function createApp({
   };
   handler.dispatcher = dispatcher;
   handler.lead = lead;
+  handler.daily = daily;
+  handler.close = () => timers.forEach((t) => clearTimeout(t));
   handler.mcp = mcp;
   return handler;
 }

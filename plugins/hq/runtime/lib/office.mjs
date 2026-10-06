@@ -51,7 +51,7 @@ function dispatchAsRuns(dispatchRuns) {
     parentAgent: null,
     dispatched: true,
     dispatchStatus: d.status,
-    fromJob: !!d.job,
+    fromJob: !!d.job || String(d.kind || '').startsWith('daily'), // the daily backlog run belongs to the Lead too
   }));
 }
 

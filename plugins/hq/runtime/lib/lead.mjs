@@ -1,6 +1,7 @@
 // Ask the Lead: a job is one goal. The Lead (a headless, read-only Claude session) writes a plan, the person
 // edits and approves it, then HQ runs each task as a dispatch run with its agent, in dependency order and
 // within the job's parallel limit. When every task has finished, the Lead (resumed) writes the summary.
+// Daily plans (daily.mjs) reuse this machinery through `hooks`; every hook only acts on jobs with `daily` set.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,6 +21,7 @@ export class Lead {
   constructor({ dataDir, dispatcher, getAgents = () => [], onChange = () => {} }) {
     this.file = path.join(dataDir, 'jobs.json');
     this.dispatcher = dispatcher;
+    this.hooks = {};
     this.getAgents = getAgents;
     this.onChange = onChange;
     this.jobs = [];
@@ -84,7 +86,8 @@ export class Lead {
     const out = [];
     for (const j of this.jobs) {
       const g = `“${clip(j.goal, 60)}”`;
-      if (j.status === 'plan-ready') out.push({ kind: 'job', job: j.id, project: j.project, text: `The Lead's plan for ${g} is ready for your approval`, at: j.updated });
+      if (j.daily && j.status === 'plan-ready') out.push({ kind: 'job', job: j.id, project: j.project, text: `Today's plan for ${j.projectName} is ready for your approval`, at: j.updated });
+      else if (j.status === 'plan-ready') out.push({ kind: 'job', job: j.id, project: j.project, text: `The Lead's plan for ${g} is ready for your approval`, at: j.updated });
       else if (j.status === 'paused') out.push({ kind: 'job', job: j.id, project: j.project, text: `A task in ${g} failed. Retry or skip it to carry on`, at: j.updated });
       else if (j.status === 'plan-failed') out.push({ kind: 'job', job: j.id, project: j.project, text: `The Lead could not plan ${g}`, at: j.updated });
       else if (j.status === 'interrupted') out.push({ kind: 'job', job: j.id, project: j.project, text: `${g} was interrupted when HQ stopped`, at: j.updated });
@@ -115,7 +118,7 @@ export class Lead {
   }
 
   // ------------------------------------------------------------- creating and planning
-  create({ goal, project, mode = 'read', parallel = 2 }) {
+  create({ goal, project, mode = 'read', parallel = 2, daily = null, planPrompt = null, maxTasks = null }) {
     goal = String(goal || '').trim();
     if (!goal) throw new Error('Tell the Lead what you want done.');
     if (goal.length > 4000) throw new Error('Keep the goal under 4,000 characters.');
@@ -131,6 +134,11 @@ export class Lead {
       tasks: [], summary: null, summaryError: null, followups: [], followupError: null,
       runs: 0, costUsd: 0, tokens: 0,
     };
+    if (daily) {
+      j.daily = daily;
+      j.planPrompt = clip(String(planPrompt || ''), 60000);
+      j.maxTasks = maxTasks;
+    }
     this.jobs.unshift(j);
     this.startLead(j, 'lead-plan');
     return j;
@@ -141,14 +149,14 @@ export class Lead {
     let prompt;
     let session = j.leadSession;
     if (kind === 'lead-plan') {
-      prompt = buildPlanPrompt({ goal: j.goal, cwd: j.cwd, agents, allowEdit: j.mode === 'edit', maxTasks: MAX_TASKS });
+      prompt = j.planPrompt || buildPlanPrompt({ goal: j.goal, cwd: j.cwd, agents, allowEdit: j.mode === 'edit', maxTasks: MAX_TASKS });
       session = null;
     } else if (kind === 'lead-followup') {
       const text = j.followups[j.followups.length - 1].text;
       prompt = buildFollowupPrompt({ text, tasks: j.tasks, allowEdit: j.mode === 'edit', maxTasks: MAX_TASKS });
       if (!session) prompt = `${buildPlanPrompt({ goal: j.goal, cwd: j.cwd, agents, allowEdit: j.mode === 'edit' })}\n\n${prompt}`;
     } else {
-      prompt = buildSummaryPrompt({ goal: j.goal, tasks: j.tasks });
+      prompt = this.hooks.summaryPrompt?.(j) || buildSummaryPrompt({ goal: j.goal, tasks: j.tasks });
     }
     const label = kind === 'lead-plan' ? `Plan: ${j.goal}` : kind === 'lead-followup' ? `Plan more: ${j.followups[j.followups.length - 1].text}` : `Summary: ${j.goal}`;
     this.touch(j);
@@ -251,25 +259,43 @@ export class Lead {
     }
     recomputeBlocked(j.tasks);
     const project = this.projectOf(j);
-    for (const t of runnable(j.tasks, j.parallel)) {
-      t.status = 'running';
-      t.started = now();
-      t.ended = null;
-      t.error = null;
-      t.attempts = (t.attempts || 0) + 1;
-      try {
-        const run = this.dispatcher.createQueued({
-          task: t.title, agent: t.agent, project, mode: t.mode,
-          args: buildArgs({ task: composeTaskPrompt(t, j.tasks, j.goal), agent: t.agent, mode: t.mode }),
-          job: j.id, kind: 'task', taskId: t.id,
-        });
-        t.runId = run.id;
-      } catch (e) {
-        t.status = 'failed';
-        t.error = e.message;
-        t.ended = now();
-        recomputeBlocked(j.tasks);
+    // Start what may start. A task skipped by a daily cap frees its slot and may release dependents, so go again.
+    for (let pass = 0; pass < 50; pass++) {
+      const picked = runnable(j.tasks, j.parallel);
+      if (!picked.length) break;
+      let skipped = false;
+      for (const t of picked) {
+        const why = this.hooks.canStart?.(j, t);
+        if (why) {
+          t.status = 'skipped';
+          t.error = why;
+          t.ended = now();
+          skipped = true;
+          continue;
+        }
+        t.status = 'running';
+        t.started = now();
+        t.ended = null;
+        t.error = null;
+        t.attempts = (t.attempts || 0) + 1;
+        try {
+          const prompt = composeTaskPrompt(t, j.tasks, j.goal);
+          const prep = this.hooks.prepareTask?.(j, t, prompt) || null;
+          const run = this.dispatcher.createQueued({
+            task: t.title, agent: t.agent, project: prep?.project || project, mode: t.mode,
+            args: prep?.args || buildArgs({ task: prompt, agent: t.agent, mode: t.mode }),
+            job: j.id, kind: 'task', taskId: t.id,
+          });
+          t.runId = run.id;
+        } catch (e) {
+          t.status = 'failed';
+          t.error = e.message;
+          t.ended = now();
+          recomputeBlocked(j.tasks);
+        }
       }
+      if (!skipped) break;
+      recomputeBlocked(j.tasks);
     }
     const active = j.tasks.some((t) => t.status === 'running');
     const stuck = j.tasks.some((t) => ['blocked', 'failed', 'cancelled', 'interrupted'].includes(t.status));
@@ -277,12 +303,27 @@ export class Lead {
     if (active || open) j.status = 'running';
     else if (stuck) j.status = 'paused';
     else {
-      j.status = 'summarizing';
-      this.startLead(j, 'lead-summary');
+      this.summarize(j);
       return;
     }
     this.touch(j);
     this.save();
+  }
+
+  // The summary step. A daily hook may write it locally (no Lead run), e.g. when the day's spend cap is used up.
+  summarize(j) {
+    const local = this.hooks.localSummary?.(j);
+    if (typeof local === 'string') {
+      j.summary = local;
+      j.status = 'done';
+      j.ended = now();
+      this.touch(j);
+      this.save();
+      this.hooks.afterSummary?.(j, null);
+      return;
+    }
+    j.status = 'summarizing';
+    this.startLead(j, 'lead-summary');
   }
 
   onRun(r) {
@@ -302,7 +343,9 @@ export class Lead {
       else j.summaryError = r.error || 'The Lead could not write the summary.';
       j.status = 'done';
       j.ended = now();
-      return this.save();
+      this.save();
+      this.hooks.afterSummary?.(j, r);
+      return;
     }
     const followup = r.kind === 'lead-followup';
     const giveUp = (msg) => {
@@ -316,13 +359,17 @@ export class Lead {
       this.save();
     };
     if (r.status !== 'done') return giveUp(r.status === 'cancelled' ? 'The Lead was cancelled before it finished planning.' : r.error || 'The Lead stopped with an error.');
-    const raw = extractJson(r.result);
+    let raw = extractJson(r.result);
     if (raw === null) {
       j.planRaw = clip(String(r.result || ''), 2000);
       return giveUp('The Lead answered without a plan in the expected format. Try again, or rephrase the goal.');
     }
     try {
+      // Daily plans may come back longer than the daily cap; the daily hook drops what may not run, then trims.
+      if (j.daily && Array.isArray(raw?.tasks) && raw.tasks.length > MAX_TASKS) raw = { ...raw, tasks: raw.tasks.slice(0, MAX_TASKS) };
       const plan = validatePlan(raw, { agents: this.agentIds(), allowEdit: j.mode === 'edit', maxTasks: MAX_TASKS, existing: followup ? j.tasks : [] });
+      this.hooks.afterPlan?.(j, plan, raw, followup);
+      if (!plan.tasks.length) throw new Error('Nothing in the plan can run without you. See the list of things to do yourself.');
       const added = plan.tasks.map((t) => ({ ...this.fresh(t), isNew: true }));
       j.tasks = followup ? [...j.tasks, ...added] : added;
       if (!followup) j.planSummary = plan.summary;
@@ -354,6 +401,11 @@ export class Lead {
     } else {
       t.status = 'failed';
       t.error = safeLine(r.error || 'The agent stopped with an error.', 300);
+    }
+    try {
+      this.hooks.afterTask?.(j, t, r);
+    } catch (e) {
+      t.note = safeLine(e.message, 300);
     }
     this.touch(j);
     this.advance(j);
@@ -446,8 +498,7 @@ export class Lead {
     const j = this.must(id);
     if (!['paused', 'stopped', 'interrupted'].includes(j.status)) throw new Error('Finish is for a job that is paused or stopped.');
     if (!j.tasks.some((t) => t.status === 'done')) throw new Error('No task has finished yet, so there is nothing to summarise.');
-    j.status = 'summarizing';
-    this.startLead(j, 'lead-summary');
+    this.summarize(j);
     return j;
   }
 

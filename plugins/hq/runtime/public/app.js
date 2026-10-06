@@ -1,4 +1,4 @@
-// Agency HQ — page logic: tabs, polling, the office panels (and lite 2D mode), Ask the Lead, Roster, Dispatch, Health.
+// Agency HQ — page logic: tabs, polling, the office panels (and lite 2D mode), Ask the Lead, Daily plan, Roster, Dispatch, Health.
 // Office panel rendering adapted from humaedihume/kantor-agent runtime/public/assets/kantor.js (MIT, Copyright (c) 2026 humaedihume).
 const CFG = window.HQ || {};
 let office = null; // the 3D module, loaded on demand
@@ -194,7 +194,7 @@ function selectCard(key) {
 }
 
 // ------------------------------------------------------------------ tabs
-const TABS = ['lead', 'office', 'roster', 'dispatch', 'health'];
+const TABS = ['lead', 'daily', 'office', 'roster', 'dispatch', 'health'];
 let tab = 'lead';
 const loaded = new Set();
 function go(t, { focus = false } = {}) {
@@ -211,6 +211,7 @@ function go(t, { focus = false } = {}) {
   if (t === 'health') loadHealth();
   if (t === 'dispatch') loadDispatch();
   if (t === 'lead') loadLead();
+  if (t === 'daily') loadDaily();
   loaded.add(t);
   if (focus) $('main').focus({ preventScroll: true });
 }
@@ -337,7 +338,7 @@ function renderOffice(d) {
   const mine = (d.attention || []).filter((a) => a.project === d.project.id);
   if (mine.length) {
     banner.className = 'banner';
-    banner.innerHTML = `${esc(mine[0].text)}${mine[0].kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : mine[0].kind === 'job' ? ` <button type="button" data-openjob="${esc(mine[0].job)}">Open</button>` : ''}`;
+    banner.innerHTML = `${esc(mine[0].text)}${mine[0].kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : mine[0].kind === 'job' ? ` <button type="button" data-openjob="${esc(mine[0].job)}">Open</button>` : mine[0].kind.startsWith('daily') ? ' <button type="button" data-go="daily">Open</button>' : ''}`;
     banner.hidden = false;
   } else if (!d.transcripts || (!d.runs.length && !d.lead.updated)) {
     banner.className = 'banner calm';
@@ -366,7 +367,7 @@ function renderOffice(d) {
   if (lite()) {
     const working = d.staff.filter((m) => m.state === 'working').length + d.extras.filter((f) => f.state === 'working').length;
     $('liteStatus').innerHTML = `<h1>${esc(d.project.name)}</h1><span class="stat"><b>${fmtNum.format(working)}</b> agent${working === 1 ? '' : 's'} working</span><span class="stat">Lead: <b>${esc(STATE[d.lead.state] || d.lead.state)}</b></span><span class="stat"><b>${fmtNum.format(d.runs.length)}</b> runs this week</span>`;
-    $('liteAttn').innerHTML = mine.map((a) => `<div class="banner" style="position:static;transform:none">${esc(a.text)}${a.kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : a.kind === 'job' ? ` <button type="button" data-openjob="${esc(a.job)}">Open</button>` : ''}</div>`).join('');
+    $('liteAttn').innerHTML = mine.map((a) => `<div class="banner" style="position:static;transform:none">${esc(a.text)}${a.kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : a.kind === 'job' ? ` <button type="button" data-openjob="${esc(a.job)}">Open</button>` : a.kind.startsWith('daily') ? ' <button type="button" data-go="daily">Open</button>' : ''}</div>`).join('');
     const items = cards.map((c) => `<li>${c}</li>`).join('');
     if ($('liteAgents').innerHTML !== items) $('liteAgents').innerHTML = items;
     const lf = feedHtml(d.feed.slice(0, 40), fresh);
@@ -380,7 +381,7 @@ let attention = [];
 function renderAttention(list) {
   const seen = new Set();
   attention = list.filter((a) => {
-    const k = `${a.kind}|${a.project}|${a.run || ''}|${a.job || ''}`;
+    const k = `${a.kind}|${a.project}|${a.run || ''}|${a.job || ''}|${a.kind.startsWith('daily') ? a.text : ''}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -394,7 +395,7 @@ function renderAttention(list) {
 }
 function fillAttention() {
   $('attnList').innerHTML = attention.length ? attention.map((a, i) => {
-    const btn = a.kind === 'review' ? `<button type="button" class="primary" data-attn="${i}">Review</button>` : a.kind === 'job' ? `<button type="button" class="primary" data-attn="${i}">Open</button>` : `<button type="button" class="ghost" data-attn="${i}">Show in office</button>`;
+    const btn = a.kind === 'review' ? `<button type="button" class="primary" data-attn="${i}">Review</button>` : a.kind === 'job' || a.kind === 'daily' || a.kind === 'daily-branch' ? `<button type="button" class="primary" data-attn="${i}">Open</button>` : `<button type="button" class="ghost" data-attn="${i}">Show in office</button>`;
     return `<li><span>${esc(a.text)}<br><small class="sub">${esc(ago(a.at))}</small></span>${btn}</li>`;
   }).join('') : '<li>Nothing needs you right now.</li>';
 }
@@ -409,6 +410,9 @@ $('attnList').addEventListener('click', (e) => {
   $('attnDlg').close();
   if (a.kind === 'job') {
     openJob(a.job);
+  } else if (a.kind === 'daily' || a.kind === 'daily-branch') {
+    go('daily');
+    setTimeout(() => document.querySelector(`[data-dproj="${CSS.escape(a.project)}"]`)?.scrollIntoView({ block: 'start' }), 300);
   } else if (a.kind === 'review') {
     go('dispatch');
     setTimeout(() => document.querySelector(`[data-run="${a.run}"]`)?.scrollIntoView({ block: 'center' }), 300);
@@ -870,6 +874,15 @@ function leadActivity(j, title) {
   const ev = j.lead?.events || [];
   return `<div class="leadbox"><span class="ava lead-ava" aria-hidden="true">L</span><div><b>${esc(title)}</b><div class="sub"><span class="working-dots">${j.lead?.status === 'queued' ? 'Waiting for a free slot' : 'Working'}</span>${j.lead?.started ? ` for ${esc(dur(j.lead.started))}` : ''}</div>${ev.length ? `<ul class="events">${ev.slice(-4).map((e) => `<li><time>${esc(hhmmss(e.t))}</time><span>${esc(e.text)}</span></li>`).join('')}</ul>` : ''}</div></div>`;
 }
+function standupHtml(j) {
+  const d = j.day;
+  if (!d) return '';
+  const st = d.standup;
+  const notes = d.notes || [];
+  if (!st && !notes.length) return '';
+  const NOTE = { yourself: 'Only you can do this', denied: 'Not run by an agent', blocked: 'Code change not planned' };
+  return `<section class="standup"><h3>Standup, ${esc(d.day)}</h3>${st ? `<dl class="sdl"><dt>Yesterday</dt><dd>${esc(st.yesterday || '—')}</dd><dt>Today</dt><dd>${esc(st.today || '—')}</dd><dt>Blockers</dt><dd>${esc(st.blockers || 'None')}</dd></dl>` : ''}${notes.length ? `<div class="yours"><h4>For you to do</h4><ul>${notes.map((n) => `<li class="k-${esc(n.kind)}"><b>${esc(n.title)}</b><span class="tag">${esc(NOTE[n.kind] || '')}</span><span class="why">${esc(n.why || '')}</span></li>`).join('')}</ul></div>` : ''}</section>`;
+}
 function renderJobBody(j) {
   const body = $('jobBody');
   if (j.status === 'plan-ready') {
@@ -882,13 +895,14 @@ function renderJobBody(j) {
     const key = `plan|${j.id}|${d.base}|${d.rev || 0}`;
     if (body.dataset.key !== key) {
       body.dataset.key = key;
-      body.innerHTML = planEditor(j, d);
+      body.innerHTML = standupHtml(j) + planEditor(j, d);
     } else updateConfirm(j, d);
     return;
   }
   body.dataset.key = '';
   let html = '';
-  if (j.status === 'planning') html += leadActivity(j, 'The Lead is reading the project and writing a plan');
+  html += standupHtml(j);
+  if (j.status === 'planning') html += leadActivity(j, j.daily ? 'The Lead is holding the standup and planning today' : 'The Lead is reading the project and writing a plan');
   if (j.status === 'following') html += leadActivity(j, 'The Lead is planning the extra work');
   if (j.status === 'summarizing') html += leadActivity(j, 'The Lead is writing the summary');
   if (j.status === 'plan-failed') {
@@ -898,7 +912,7 @@ function renderJobBody(j) {
   if (j.status === 'paused') html += `<div class="notice n-attn"><b>Paused.</b> A task failed, so the tasks that depend on it are waiting for you. Retry it, skip it, or finish and summarise.</div>`;
   if (j.followupError) html += `<div class="notice n-bad">The Lead could not plan the extra work: ${esc(j.followupError)}</div>`;
   if (j.summary || j.summaryError) {
-    html += `<section class="summary"><h3>The Lead's summary</h3>${j.summary ? `<div class="prose">${esc(j.summary)}</div>` : `<p class="err">${esc(j.summaryError)}</p>`}</section>`;
+    html += `<section class="summary"><h3>${j.daily ? 'Daily report' : "The Lead's summary"}</h3>${j.summary ? `<div class="prose">${esc(j.summary)}</div>` : `<p class="err">${esc(j.summaryError)}</p>`}</section>`;
   }
   if (j.tasks.length) html += board(j);
   if (body.innerHTML !== html) {
@@ -955,7 +969,7 @@ function planEditor(j, d) {
   const lockedHtml = locked.length ? `<details class="locked"><summary>${locked.length} task${locked.length === 1 ? '' : 's'} already in this job</summary><ul>${locked.map((t) => `<li>${pill(t.status)} ${esc(t.title)} <span class="sub">${esc(agentInfo(t.agent).name)}</span></li>`).join('')}</ul></details>` : '';
   const warn = (j.planWarnings || []).length ? `<ul class="warns">${j.planWarnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
   return `<div class="plan">
-  <div class="plan-head"><h3>${locked.length ? 'The Lead proposes more work' : 'The Lead’s plan'}</h3>${j.planSummary && !locked.length ? `<p class="sub">${esc(j.planSummary)}</p>` : ''}<p class="sub">Check each task. Change the agent, rewrite the instructions, reorder, add or remove tasks. Nothing runs until you approve.</p></div>
+  <div class="plan-head"><h3>${locked.length ? 'The Lead proposes more work' : j.daily ? 'Today’s plan' : 'The Lead’s plan'}</h3>${j.planSummary && !locked.length ? `<p class="sub">${esc(j.planSummary)}</p>` : ''}<p class="sub">Check each task. Change the agent, rewrite the instructions, reorder, add or remove tasks. Nothing runs until you approve.</p></div>
   ${lockedHtml}${warn}
   <ol class="pcards">${cards}</ol>
   <button type="button" class="ghost add" data-padd>+ Add a task</button>
@@ -965,8 +979,10 @@ function planEditor(j, d) {
 function approveHtml(j, d) {
   const n = d.tasks.length;
   const edits = d.tasks.filter((t) => t.mode === 'edit');
-  const confirm = edits.length ? `<label class="confirm"><input type="checkbox" id="confirmEdit"> <span>I understand ${edits.length === 1 ? 'this task' : `these ${edits.length} tasks`} can create and change files in <code>${esc(j.cwd)}</code> without asking: <b>${esc(edits.map((t) => t.title).join(', '))}</b></span></label>` : '';
-  return `${confirm}<p class="cost">Approving starts <b>${n} agent run${n === 1 ? '' : 's'}</b>, up to ${esc(j.parallel)} at a time, plus one more for the Lead's summary. Each run uses your Claude plan like any other session.</p><div class="formerr" id="planErr" role="alert" hidden></div><div class="btns"><button type="button" class="primary big" data-jact="approve"${n ? '' : ' disabled'}>Approve plan</button><button type="button" class="ghost" data-jact="replan"${j.tasks.some((t) => t.status !== 'waiting') ? ' hidden' : ''}>Plan again</button><button type="button" class="ghost" data-jact="discard">Discard</button></div>`;
+  const confirm = edits.length ? (j.daily
+    ? `<label class="confirm"><input type="checkbox" id="confirmEdit"> <span>I understand ${edits.length === 1 ? 'this task changes' : `these ${edits.length} tasks change`} code: <b>${esc(edits.map((t) => t.title).join(', '))}</b>. Each works on its own local branch (<code>daily/…</code>) and is committed there. Your checkout is not touched and nothing is pushed.</span></label>`
+    : `<label class="confirm"><input type="checkbox" id="confirmEdit"> <span>I understand ${edits.length === 1 ? 'this task' : `these ${edits.length} tasks`} can create and change files in <code>${esc(j.cwd)}</code> without asking: <b>${esc(edits.map((t) => t.title).join(', '))}</b></span></label>`) : '';
+  return `${confirm}<p class="cost">Approving starts <b>${n} agent run${n === 1 ? '' : 's'}</b>, up to ${esc(j.parallel)} at a time, plus one more for the ${j.daily ? 'evening report' : "Lead's summary"}. Each run uses your Claude plan like any other session.${j.daily ? ' Agents cannot push, merge, deploy, post or send anything.' : ''}</p><div class="formerr" id="planErr" role="alert" hidden></div><div class="btns"><button type="button" class="primary big" data-jact="approve"${n ? '' : ' disabled'}>${j.daily ? "Approve today's plan" : 'Approve plan'}</button><button type="button" class="ghost" data-jact="replan"${j.tasks.some((t) => t.status !== 'waiting') ? ' hidden' : ''}>Plan again</button><button type="button" class="ghost" data-jact="discard">Discard</button></div>`;
 }
 function updateConfirm(j, d) {
   const box = $('approveBox');
@@ -1212,6 +1228,9 @@ function renderBusy(d) {
     const n = d.attention.filter((a) => a.kind === 'job').length;
     $('leadCount').hidden = !n;
     $('leadCount').textContent = n;
+    const m = d.attention.filter((a) => a.kind === 'daily' || a.kind === 'daily-branch').length;
+    $('dailyCount').hidden = !m;
+    $('dailyCount').textContent = m;
   }
 }
 $('stopAllBtn').onclick = () => {
@@ -1233,6 +1252,235 @@ $('stopGo').onclick = async () => {
     if (tab === 'lead') loadLead();
   }
 };
+
+// ------------------------------------------------------------------ daily plan
+let daily = null;
+let dailyTimer = null;
+const bdrafts = new Map(); // project id -> backlog draft
+const DSTATE = { planning: 'Standup running', 'plan-ready': 'Waiting for you', running: 'Running', summarizing: 'Writing report', done: 'Done', paused: 'Needs you', 'plan-failed': 'No plan', stopped: 'Stopped', interrupted: 'Interrupted', following: 'Planning more', gone: 'Removed' };
+const money = (n) => `$${(n || 0).toFixed(2)}`;
+async function loadDaily() {
+  clearTimeout(dailyTimer);
+  if (!roster) await loadRoster(true);
+  try {
+    daily = await api('/api/daily');
+  } catch (e) {
+    $('dailyList').innerHTML = `<div class="empty">Could not load daily plans: ${esc(e.message)}</div>`;
+    return;
+  }
+  renderDaily();
+  if (tab === 'daily') {
+    const busy = daily.projects.some((p) => p.seeding || (p.today && ['planning', 'running', 'summarizing', 'following'].includes(p.today.status)));
+    dailyTimer = setTimeout(loadDaily, busy ? 2000 : 8000);
+  }
+}
+function renderDaily() {
+  if (!daily) return;
+  $('pauseBtn').setAttribute('aria-checked', String(!daily.paused));
+  $('pauseBtn').setAttribute('aria-label', daily.paused ? 'Daily plans paused' : 'Daily plans on');
+  $('pauseTxt').textContent = daily.paused ? 'Daily plans are paused' : 'Daily plans are on';
+  const have = new Set(daily.projects.map((p) => p.id));
+  const free = (daily.available || []).filter((p) => !have.has(p.id));
+  const sel = $('daily-add');
+  const was = sel.value;
+  sel.innerHTML = free.length ? free.map((p) => `<option value="${esc(p.id)}" title="${esc(p.cwd)}">${esc(p.name)}</option>`).join('') : '<option value="">Every project already has a daily plan</option>';
+  if (free.some((p) => p.id === was)) sel.value = was;
+  $('daddBtn').disabled = !free.length;
+  $('dadd').classList.toggle('compact', daily.projects.length > 0);
+  const list = $('dailyList');
+  // keep typing and open sections intact across refreshes
+  if (list.contains(document.activeElement) && document.activeElement.matches('input, textarea, select')) return;
+  const open = new Set([...list.querySelectorAll('details[open]')].map((x) => x.dataset.k));
+  list.innerHTML = daily.projects.length ? daily.projects.map(dailyCard).join('') : '<div class="jobs-empty"><h2>How the daily plan works</h2><ol class="how"><li><b>Morning, by itself:</b> the Lead reads the project (read-only), writes a short standup and proposes today\'s plan.</li><li><b>You tap Approve</b> (or change the plan first). Nothing runs before that.</li><li><b>Agents work.</b> Code changes go on their own local branch. Nothing is pushed, merged, deployed, posted or sent.</li><li><b>Evening, by itself:</b> a read-only report, and the backlog is updated.</li><li><b>Branches wait for you.</b> Open a PR with one click after seeing the exact commands, or delete the branch.</li></ol></div>';
+  list.querySelectorAll('details[data-k]').forEach((x) => { if (open.has(x.dataset.k)) x.open = true; });
+}
+function dailyCard(p) {
+  const t = p.today;
+  const c = p.config;
+  let today;
+  if (!p.enabled) {
+    today = `<p class="sub">Off. Switch it on and the Lead holds a standup every day at <b>${esc(c.standupAt)}</b> while HQ is running.</p>`;
+  } else if (!t || ['gone', 'stopped', 'plan-failed'].includes(t.status)) {
+    const again = t ? `Today's plan ${t.status === 'gone' ? 'was removed' : t.status === 'stopped' ? 'was stopped' : 'could not be made'}. ` : '';
+    today = `<div class="dnext"><span>${again}${t ? '' : `Next standup <b>${esc(c.standupAt)}</b>${daily.paused ? ' (paused)' : ''}. If HQ is not running then, it catches up when HQ starts that day.`}</span><button type="button" class="ghost" data-dact="standup" data-p="${esc(p.id)}">${t ? 'Hold the standup again' : "Hold today's standup now"}</button></div>`;
+  } else {
+    const st = t.standup;
+    const go = t.status === 'plan-ready'
+      ? `<button type="button" class="primary" data-openjob="${esc(t.jobId)}">Review and approve today's plan</button>`
+      : `<button type="button" class="ghost" data-openjob="${esc(t.jobId)}">${t.status === 'planning' ? 'Watch the standup' : 'Open today\'s plan'}</button>`;
+    const notes = (t.notes || []);
+    today = `<div class="dtoday"><div class="dt-head">${pill(t.status === 'plan-ready' ? 'paused' : t.status, DSTATE[t.status] || t.status)}<span class="sub">${t.tasks ? `${t.done} of ${t.tasks} task${t.tasks === 1 ? '' : 's'} done` : ''}</span>${go}</div>
+${st ? `<dl class="sdl"><dt>Yesterday</dt><dd>${esc(st.yesterday || '—')}</dd><dt>Today</dt><dd>${esc(st.today || '—')}</dd><dt>Blockers</dt><dd>${esc(st.blockers || 'None')}</dd></dl>` : t.status === 'planning' ? '<p class="sub"><span class="working-dots">The Lead is holding the standup</span></p>' : ''}
+${notes.length ? `<div class="yours"><h4>For you to do</h4><ul>${notes.map((n) => `<li class="k-${esc(n.kind)}"><b>${esc(n.title)}</b><span class="why">${esc(n.why || '')}</span></li>`).join('')}</ul></div>` : ''}
+${t.summary ? `<section class="summary"><h3>Daily report</h3><div class="prose">${esc(t.summary)}</div>${t.reportSeen ? '' : `<div class="btns"><button type="button" class="ghost sm" data-dact="seen" data-p="${esc(p.id)}">Mark as read</button></div>`}</section>` : ''}</div>`;
+  }
+  const ready = p.branches.filter((b) => b.status !== 'deleted');
+  const branches = ready.length ? `<section class="dsec"><h3>Branches from the daily plan</h3><div class="rows">${ready.map((b) => `<div class="row" style="--c:${b.status === 'ready' ? 'var(--accent)' : 'var(--ok)'}"><span class="stripe"></span><div class="title"><code>${esc(b.branch)}</code>${b.status === 'pr-opened' ? pill('done', 'PR open') : pill('waiting', 'Local only')}</div><div class="right">${b.status === 'ready' ? `<button type="button" class="primary sm" data-pr="${esc(b.id)}">Open PR</button><button type="button" class="ghost sm" data-bdel="${esc(b.id)}">Delete branch</button>` : b.prUrl ? `<a class="copy" href="${esc(b.prUrl)}" target="_blank" rel="noopener noreferrer">View PR</a>` : ''}</div><div class="detail">${esc(b.title)} · commit <code>${esc(b.commit)}</code> · ${esc(b.day)}</div></div>`).join('')}</div></section>` : '';
+  const bd = bdrafts.get(p.id);
+  const items = bd ? bd.items : p.backlog.map((b) => ({ ...b }));
+  const openItems = items.filter((b) => b.status !== 'done').length;
+  const backlog = `<details class="dsec" data-k="bl-${esc(p.id)}"><summary><h3>Backlog <span class="sub">${openItems} open${p.seeding ? ', the Lead is reading the project' : ''}</span></h3></summary>
+${p.seedError ? `<p class="err">${esc(p.seedError)}</p>` : ''}<ul class="blist" data-bl="${esc(p.id)}">${items.map((b, i) => `<li class="${b.status === 'done' ? 'done' : ''}"><label class="bcheck"><input type="checkbox" id="bl-done-${esc(p.id)}-${i}" data-bi="${i}" data-bf="status"${b.status === 'done' ? ' checked' : ''}><span class="sr">Done</span></label><input type="text" id="bl-title-${esc(p.id)}-${i}" value="${esc(b.title)}" maxlength="200" data-bi="${i}" data-bf="title" aria-label="Backlog item"><span class="bsrc">${b.source === 'lead' ? 'Lead' : b.source === 'you' ? 'You' : ''}</span><button type="button" class="icon sm" data-bmove="-1" data-bi="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button><button type="button" class="icon sm" data-bdelitem data-bi="${i}" aria-label="Remove"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></li>`).join('') || '<li class="empty">Empty. Add what you want the Lead to work through.</li>'}</ul>
+<div class="badd"><input type="text" id="bl-new-${esc(p.id)}" maxlength="200" placeholder="Add a backlog item" aria-label="New backlog item" data-bnew="${esc(p.id)}"><button type="button" class="ghost" data-badd="${esc(p.id)}">Add</button>${bd?.dirty ? `<button type="button" class="primary" data-bsave="${esc(p.id)}">Save backlog</button>` : ''}</div></details>`;
+  const days = p.days.filter((d) => !t || d.day !== t.day);
+  const timeline = days.length ? `<details class="dsec" data-k="tl-${esc(p.id)}"><summary><h3>Earlier days <span class="sub">${days.length}</span></h3></summary><ul class="tline">${days.map((d) => `<li><button type="button" class="jobrun" ${d.status !== 'gone' ? `data-openjob="${esc(d.jobId)}"` : 'disabled'}><b>${esc(d.day)}</b>${pill(d.status === 'plan-ready' ? 'stopped' : d.status, d.status === 'plan-ready' ? 'Not approved' : DSTATE[d.status] || d.status)}<span class="sub">${d.tasks ? `${d.done} of ${d.tasks} done · ` : ''}${money(d.costUsd)}${d.summary ? ` · ${esc(d.summary.replace(/\s+/g, ' ').slice(0, 140))}` : ''}</span></button></li>`).join('')}</ul></details>` : '';
+  const settings = `<details class="dsec" data-k="st-${esc(p.id)}"${p.enabled ? '' : ' open'}><summary><h3>Settings</h3></summary><form class="dset" data-dset="${esc(p.id)}" novalidate>
+<label class="field dfocus"><span class="label">Focus for the Lead</span><textarea id="d-focus-${esc(p.id)}" name="focus" rows="2" maxlength="1000" placeholder="For example: get to a Play Store launch">${esc(c.focus)}</textarea></label>
+<label class="field"><span class="label">Standup</span><input type="time" id="d-standup-${esc(p.id)}" name="standupAt" value="${esc(c.standupAt)}" required></label>
+<label class="field"><span class="label">Evening report</span><input type="time" id="d-wrap-${esc(p.id)}" name="wrapAt" value="${esc(c.wrapAt)}" required></label>
+<label class="field"><span class="label">Tasks per day</span><select id="d-tasks-${esc(p.id)}" name="maxTasks">${[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `<option${n === c.maxTasks ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+<label class="field"><span class="label">Spend limit per day</span><span class="money"><span aria-hidden="true">$</span><input type="number" id="d-usd-${esc(p.id)}" name="maxUsd" min="0.5" max="100" step="0.5" value="${esc(c.maxUsd)}"></span></label>
+<div class="btns"><button type="submit" class="primary">Save settings</button><span class="sub">Spend counts the standup, the agents and the report, from what Claude Code reports.</span></div></form></details>`;
+  const spent = `${money(p.spentToday)} of ${money(c.maxUsd)} spent today`;
+  return `<article class="dcard${p.enabled ? '' : ' off'}" data-dproj="${esc(p.id)}">
+<header class="dc-head"><div><h2>${esc(p.name)}</h2><p class="sub"><code>${esc(p.cwd)}</code> · standup ${esc(c.standupAt)}, report ${esc(c.wrapAt)} · up to ${esc(c.maxTasks)} task${c.maxTasks === 1 ? '' : 's'} · ${esc(spent)}</p>${c.focus ? `<p class="dfocus-line">Focus: ${esc(c.focus)}</p>` : ''}</div>
+<button type="button" class="switch" role="switch" aria-checked="${p.enabled}" aria-label="Daily plan for ${esc(p.name)} ${p.enabled ? 'on' : 'off'}" data-denable="${esc(p.id)}"></button></header>
+${today}${branches}${backlog}${settings}${timeline}</article>`;
+}
+async function dailyAct(path, body, okMsg) {
+  try {
+    const r = await act(path, body);
+    if (okMsg) toast(okMsg);
+    return r;
+  } catch (ex) {
+    toast(ex.message, true);
+    return null;
+  } finally {
+    loadDaily();
+    pollNow();
+  }
+}
+$('dadd').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('daily-add').value;
+  if (!id) return;
+  $('daddBtn').disabled = true;
+  await dailyAct(`/api/daily/projects/${encodeURIComponent(id)}`, {}, 'Added. Set the focus and switch it on when you are ready.');
+});
+$('pauseBtn').onclick = () => dailyAct('/api/daily/pause', { paused: !daily.paused }, daily.paused ? 'Daily plans are on again.' : 'Daily plans are paused. Nothing is scheduled until you switch them back on.');
+function backlogDraft(id) {
+  let d = bdrafts.get(id);
+  if (!d) {
+    const p = daily.projects.find((x) => x.id === id);
+    d = { items: p.backlog.map((b) => ({ ...b })), dirty: false };
+    bdrafts.set(id, d);
+  }
+  return d;
+}
+$('dailyList').addEventListener('input', (e) => {
+  const el = e.target.closest('[data-bf="title"]');
+  if (!el) return;
+  const id = el.closest('[data-bl]').dataset.bl;
+  const d = backlogDraft(id);
+  d.items[Number(el.dataset.bi)].title = el.value;
+  if (!d.dirty) {
+    d.dirty = true;
+    const box = el.closest('.dsec').querySelector('.badd');
+    if (box && !box.querySelector('[data-bsave]')) box.insertAdjacentHTML('beforeend', `<button type="button" class="primary" data-bsave="${esc(id)}">Save backlog</button>`);
+  }
+});
+$('dailyList').addEventListener('change', (e) => {
+  const el = e.target.closest('[data-bf="status"]');
+  if (!el) return;
+  const id = el.closest('[data-bl]').dataset.bl;
+  const d = backlogDraft(id);
+  d.items[Number(el.dataset.bi)].status = el.checked ? 'done' : 'open';
+  d.dirty = true;
+  saveBacklog(id);
+});
+$('dailyList').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.matches('[data-bnew]')) {
+    e.preventDefault();
+    addBacklog(e.target.dataset.bnew);
+  }
+});
+async function saveBacklog(id) {
+  const d = bdrafts.get(id);
+  if (!d) return;
+  bdrafts.delete(id);
+  document.activeElement?.blur();
+  await dailyAct(`/api/daily/projects/${encodeURIComponent(id)}/backlog`, { items: d.items.map(({ id: bid, title, detail, status }) => ({ id: bid, title, detail, status })) });
+}
+function addBacklog(id) {
+  const input = $(`bl-new-${id}`);
+  const title = input.value.trim();
+  if (!title) {
+    input.focus();
+    return;
+  }
+  const d = backlogDraft(id);
+  d.items.push({ title, detail: '', status: 'open', source: 'you' });
+  d.dirty = true;
+  saveBacklog(id);
+}
+$('dailyList').addEventListener('submit', async (e) => {
+  const f = e.target.closest('[data-dset]');
+  if (!f) return;
+  e.preventDefault();
+  const id = f.dataset.dset;
+  const data = new FormData(f);
+  document.activeElement?.blur();
+  await dailyAct(`/api/daily/projects/${encodeURIComponent(id)}`, { focus: data.get('focus'), standupAt: data.get('standupAt'), wrapAt: data.get('wrapAt'), maxTasks: Number(data.get('maxTasks')), maxUsd: Number(data.get('maxUsd')) }, 'Settings saved.');
+});
+$('dailyList').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-denable],[data-dact],[data-pr],[data-bdel],[data-bmove],[data-bdelitem],[data-badd],[data-bsave]');
+  if (!b) return;
+  if (b.dataset.denable) {
+    const id = b.dataset.denable;
+    const on = b.getAttribute('aria-checked') !== 'true';
+    b.disabled = true;
+    await dailyAct(`/api/daily/projects/${encodeURIComponent(id)}`, { enabled: on }, on ? 'On. The Lead holds the standup at the set time while HQ is running.' : 'Off. No more standups for this project.');
+  } else if (b.dataset.dact === 'standup') {
+    b.disabled = true;
+    const r = await dailyAct(`/api/daily/projects/${encodeURIComponent(b.dataset.p)}/standup`, {}, 'The Lead is holding the standup. It only reads the project.');
+    if (r?.job) openJob(r.job.id);
+  } else if (b.dataset.dact === 'seen') {
+    await dailyAct(`/api/daily/projects/${encodeURIComponent(b.dataset.p)}/seen`, {});
+  } else if (b.dataset.pr) {
+    openPrDialog(b.dataset.pr);
+  } else if (b.dataset.bdel) {
+    b.disabled = true;
+    await dailyAct(`/api/daily/branches/${b.dataset.bdel}/delete`, {}, 'Branch deleted.');
+  } else if (b.dataset.badd) {
+    addBacklog(b.dataset.badd);
+  } else if (b.dataset.bsave) {
+    saveBacklog(b.dataset.bsave);
+  } else {
+    const id = b.closest('[data-bl]').dataset.bl;
+    const d = backlogDraft(id);
+    const i = Number(b.dataset.bi);
+    if (b.dataset.bmove) [d.items[i - 1], d.items[i]] = [d.items[i], d.items[i - 1]];
+    else d.items.splice(i, 1);
+    d.dirty = true;
+    saveBacklog(id);
+  }
+});
+async function openPrDialog(id) {
+  const body = $('prBody');
+  body.innerHTML = '<p class="sub">Loading</p>';
+  $('prDlg').showModal();
+  let r;
+  try {
+    r = await api(`/api/daily/branches/${id}/pr`);
+  } catch (ex) {
+    body.innerHTML = `<p class="err">${esc(ex.message)}</p>`;
+    return;
+  }
+  body.innerHTML = `<p>HQ will run these two commands in <code>${esc(r.cwd)}</code>. The first pushes the branch to GitHub; the second opens the pull request. Nothing is merged.</p><pre class="cmds">${r.commands.map(esc).join('\n\n')}</pre><div class="formerr" id="prErr" role="alert" hidden></div><div class="btns"><button type="button" class="primary" id="prGo">Push and open the PR</button><button type="button" class="ghost" id="prNo">Not now</button></div>`;
+  $('prNo').onclick = () => $('prDlg').close();
+  $('prGo').onclick = async () => {
+    $('prGo').disabled = true;
+    try {
+      const res = await act(`/api/daily/branches/${id}/pr`, { confirm: true });
+      body.innerHTML = `<p>Pull request opened.</p>${res.url ? `<div class="urlbox"><code>${esc(res.url)}</code><a class="copy" href="${esc(res.url)}" target="_blank" rel="noopener noreferrer">Open</a></div>` : ''}`;
+      loadDaily();
+    } catch (ex) {
+      $('prErr').textContent = ex.message;
+      $('prErr').hidden = false;
+      $('prGo').disabled = false;
+    }
+  };
+}
 
 // ------------------------------------------------------------------ share on the network
 $('shareBtn').onclick = async () => {
@@ -1257,7 +1505,7 @@ addEventListener('keydown', (e) => {
   if (typing) return;
   if (document.querySelector('dialog[open]')) return;
   const k = e.key;
-  if (k >= '1' && k <= '5') go(TABS[Number(k) - 1]);
+  if (k >= '1' && k <= '6') go(TABS[Number(k) - 1]);
   else if (k === '/') {
     e.preventDefault();
     if (tab === 'dispatch') $('dispatch-task').focus();

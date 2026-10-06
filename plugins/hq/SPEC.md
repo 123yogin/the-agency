@@ -81,3 +81,19 @@ explicit confirmation naming them and the folder. Jobs persist in `jobs.json`;
 active ones come back as interrupted after a restart. "Stop everything" stops
 all jobs and HQ-started runs. Pure rules live in `lib/plan.mjs`, orchestration
 in `lib/lead.mjs`.
+
+## Daily plan (1.2.0)
+
+Per project, off by default. Only the read-only standup (default 09:00) and the
+read-only evening report (default 18:00, or when the day's job finishes) run on
+a schedule; the schedule lives in the HQ server (minute tick, catch-up once on
+start, never twice a day) and there is no login autostart. The standup becomes
+an Ask the Lead job; nothing runs until the user approves it. Enforced in code:
+deny-list for deploy/push/merge/PR/post/send/spend/secrets (moved to "For you to
+do"), blocked tools on every daily run (`git push`, `git merge`, `gh`, `vercel`,
+publish, curl/wget), code tasks in a fresh worktree on a local `daily/<date>-<slug>`
+branch committed by HQ, dirty or non-git repos refuse code tasks, daily caps on
+task runs and spend (then a free local report), global pause. Open PR shows the
+exact push and `gh pr create` commands and runs them only on confirm. Backlog
+lives in HQ's data dir, seeded read-only on first enable, edited in the
+dashboard, updated by the report.
