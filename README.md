@@ -36,7 +36,7 @@ Install only the plugins you need. Each one is independent.
 | [growth](plugins/growth) | SEO, AEO (AI citations), ASO, copy, CRO, experiments, pricing, launches, Reddit, Hacker News, LinkedIn, X, lifecycle email, outbound, support, success, SaaS metrics, fundraising, privacy and legal first drafts | yes |
 | [ai-data-docs](plugins/ai-data-docs) | MCP server building, LLM evals, RAG, prompt engineering, multi-agent design, fine-tuning, deep research, SQL and notebook analysis, statistics, data quality, docs, office files | yes |
 | [meta](plugins/meta) | Write and test your own skills and agents, agent teams (experimental), context management, decision council | yes |
-| [hq](plugins/hq) | **Agency HQ**: a 3D office where you watch every agent work, a searchable roster, a Dispatch tab where you review a task before it runs (read-only by default), and plugin/MCP health with one-click fixes. Works on a phone. Type `/hq` | yes |
+| [hq](plugins/hq) | **Agency HQ**: **Ask the Lead** (type a goal; the Lead plans tasks, picks agents, runs them after you approve the plan, pauses on failures and writes a summary), a 3D office where you watch every agent work, a searchable roster, a Dispatch tab where you review a task before it runs (read-only by default), and plugin/MCP health with one-click fixes. Works on a phone. Type `/hq` | yes |
 | [mcp-core](plugins/mcp-core) | 15 keyless MCP servers: Chrome DevTools, Playwright, Context7, code graph, ast-grep, Repomix, read-only SQL, mobile device control, MarkItDown, Excel, YouTube transcripts, Excalidraw, charts, shadcn/ui, icons | yes |
 | [mcp-git-hosting](plugins/mcp-git-hosting) | GitHub, GitLab | no |
 | [mcp-cloud](plugins/mcp-cloud) | Supabase, Kubernetes, AWS, Terraform (read-only by default) | no |

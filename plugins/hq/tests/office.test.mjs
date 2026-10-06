@@ -109,3 +109,21 @@ test('a finished background run (claude -p) is not flagged as waiting for you; a
   assert.equal(term.attention.length, 1);
   assert.equal(term.attention[0].kind, 'your-turn');
 });
+
+test('agents working for a Lead job sit at desks, labelled as the Lead\'s, and the Lead planner has a readable name', async () => {
+  const { buildState } = await import('../runtime/lib/office.mjs');
+  const { findProject } = await import('../runtime/lib/projects.mjs');
+  const at = (s) => new Date(NOW - s * 1000).toISOString();
+  const s = buildState({
+    project: findProject(fx.projects.notes),
+    now: NOW,
+    dispatchRuns: [
+      { id: 'aaa111aaa111', project: fx.projects.notes, job: 'job000job000', kind: 'task', agent: 'engineering:code-reviewer', task: 'Review notes', status: 'running', started: at(5), updated: at(1), events: [], tools: 0, tokens: 0 },
+      { id: 'bbb222bbb222', project: fx.projects.notes, job: 'job000job000', kind: 'lead-plan', agent: 'hq:lead', task: 'Plan: tidy notes', status: 'done', started: at(40), ended: at(20), updated: at(20), events: [], tools: 0, tokens: 0 },
+    ],
+  });
+  const w = s.staff.find((m) => m.state === 'working');
+  assert.equal(w.run.fromJob, true);
+  assert.ok(s.runs.some((r) => r.fromJob && r.label === 'Lead (HQ)'), 'the planner shows as Lead (HQ)');
+  assert.ok(s.feed.some((e) => e.kind === 'assign' && e.text.startsWith('Lead (HQ) asked code-reviewer')));
+});

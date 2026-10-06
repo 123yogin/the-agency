@@ -1,6 +1,6 @@
 ---
 name: hq
-description: Use when the user wants to see, visualise, monitor or operate their agents, open the agency dashboard or 3D office, check what agents are doing, browse what the agency can do, or open HQ on their phone. Starts Agency HQ and gives them the link.
+description: Use when the user wants to see, visualise, monitor or operate their agents, hand a goal to a Lead that assigns agents automatically, open the agency dashboard or 3D office, check what agents are doing, browse what the agency can do, or open HQ on their phone. Starts Agency HQ and gives them the link.
 ---
 
 # Agency HQ
@@ -8,6 +8,10 @@ description: Use when the user wants to see, visualise, monitor or operate their
 Agency HQ is a local web dashboard for The Agency. It reads Claude Code's own
 transcripts (read-only) and shows:
 
+- **Ask the Lead**: the user types a goal; a read-only Lead session plans tasks
+  and picks agents; the user edits and approves the plan; HQ runs the agents in
+  dependency order and the Lead writes a summary. Failed tasks pause their
+  dependents and wait for the user.
 - **Office**: a 3D office where the Lead (main session) and every running
   subagent sit at desks named after the agent they run as, coloured by plugin.
   A red beacon and banner mean something needs the user.

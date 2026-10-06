@@ -27,6 +27,7 @@ server.on('error', (e) => {
 server.listen(port, bind, () => console.log(`Agency HQ listening on http://${bind}:${port}/ (Node ${process.versions.node}, pid ${process.pid})`));
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {
+    app.lead.shuttingDown = true; // jobs stay "running" on disk, so they come back as interrupted with Retry
     app.dispatcher.stopAll();
     server.close(() => process.exit(0));
     server.closeAllConnections?.();

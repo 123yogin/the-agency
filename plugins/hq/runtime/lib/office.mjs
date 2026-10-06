@@ -51,6 +51,7 @@ function dispatchAsRuns(dispatchRuns) {
     parentAgent: null,
     dispatched: true,
     dispatchStatus: d.status,
+    fromJob: !!d.job,
   }));
 }
 
@@ -166,6 +167,7 @@ export function buildState({ project, cacheDir = null, cfg = DEFAULTS, now, disp
       department: r.who.department,
       color: r.who.color,
       dispatched: !!r.dispatched,
+      fromJob: !!r.fromJob,
       task: task(r),
       status: lastJob ? r.status : 'done',
       reason: lastJob ? r.reason : null,
@@ -256,7 +258,7 @@ export function buildState({ project, cacheDir = null, cfg = DEFAULTS, now, disp
     const who = charInfo(job.who, r);
     if (job.k === 0) {
       const parent = r.parentAgent !== null && byId.has(r.parentAgent) ? byId.get(r.parentAgent) : null;
-      const req = r.dispatched ? { key: 'hq', label: 'You (HQ)', color: leadColor } : parent !== null ? charInfo(charOf.get(parent.id), parent) : L;
+      const req = r.fromJob ? { key: 'hq', label: 'Lead (HQ)', color: leadColor } : r.dispatched ? { key: 'hq', label: 'You (HQ)', color: leadColor } : parent !== null ? charInfo(charOf.get(parent.id), parent) : L;
       add(job.startIso, job.start, req, 'assign', `${req.label} asked ${who.label}: ${task(r)}`, null);
     } else {
       add(job.startIso, job.start, who, 'resume', `${who.label} picked up again: ${task(r)}`, null);
@@ -300,7 +302,7 @@ export function buildState({ project, cacheDir = null, cfg = DEFAULTS, now, disp
     const who = charInfo(job.who, r);
     return {
       id: r.id, who: who.key, name: who.name, label: who.label, color: who.color, department: r.who.department, plugin: r.who.plugin,
-      dispatched: !!r.dispatched, agent_type: r.agentType, task: task(r), status: r.status, started: r.started,
+      dispatched: !!r.dispatched, fromJob: !!r.fromJob, agent_type: r.agentType, task: task(r), status: r.status, started: r.started,
       ended: job.end === null ? null : job.endIso, tools: r.tools,
     };
   });

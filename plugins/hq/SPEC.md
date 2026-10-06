@@ -66,3 +66,18 @@ plugins/hq/
   see/visualise/operate agents, start HQ)   hooks/hooks.json (optional autostart, off by
   default)   runtime/ (server + public assets)   README.md   NOTICE.md (kantor-agent MIT,
   three.js MIT)   tests/ (node --test for parsing, routing, redaction, auth).
+
+## 1.1: Ask the Lead
+
+The primary tab. A goal becomes a job:
+planning (read-only Lead run) → plan-ready (editable cards; nothing runs) → running
+(tasks as dispatch runs with `--agent`, in `depends_on` order, within the job's
+parallel limit; dependents get a short summary of their dependencies' results) →
+summarizing (the Lead resumed with `--resume <session>`) → done.
+A failed/cancelled task blocks its dependents and pauses the job (Needs you);
+retry, skip or "finish and summarise" resolve it. Follow-ups resume the Lead,
+which proposes extra tasks that need approval again. Edit-mode tasks need an
+explicit confirmation naming them and the folder. Jobs persist in `jobs.json`;
+active ones come back as interrupted after a restart. "Stop everything" stops
+all jobs and HQ-started runs. Pure rules live in `lib/plan.mjs`, orchestration
+in `lib/lead.mjs`.

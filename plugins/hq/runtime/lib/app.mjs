@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { SECURITY_HEADERS, checkAction, hostAllowed, isLoopback, lanAccess } from './auth.mjs';
 import { Dispatcher, MODES } from './dispatch.mjs';
 import { McpStatus, prereqs, togglePlugin } from './health.mjs';
+import { Lead } from './lead.mjs';
 import { DEFAULTS, buildState } from './office.mjs';
 import { dataDir as defaultDataDir } from './paths.mjs';
 import { findProject, listProjects } from './projects.mjs';
@@ -14,20 +15,21 @@ import { route } from './routing.mjs';
 
 const RUNTIME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(RUNTIME, 'public');
-export const VERSION = '1.0.0';
+export const VERSION = '1.1.0';
 const TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
 
 const scriptJson = (v) => JSON.stringify(v).replace(/[<>&'\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 
 export function createApp({
   token, lanKey = null, lanUrl = null, claudeBin = process.env.HQ_CLAUDE_BIN || 'claude', dataDir = defaultDataDir(),
-  maxRuns = Number(process.env.HQ_MAX_RUNS) || 2, extraHosts = process.env.HQ_ALLOWED_HOSTS || '', spawn, exec,
+  maxRuns = Number(process.env.HQ_MAX_RUNS) || 4, extraHosts = process.env.HQ_ALLOWED_HOSTS || '', spawn, exec,
 } = {}) {
   if (!token) throw new Error('createApp needs a token');
   const cacheDir = path.join(dataDir, 'cache');
   fs.mkdirSync(cacheDir, { recursive: true });
   const dispatcher = new Dispatcher({ dataDir, claudeBin, maxConcurrent: maxRuns, ...(spawn ? { spawn } : {}) });
   const mcp = new McpStatus({ claudeBin, ...(exec ? { exec } : {}) });
+  const lead = new Lead({ dataDir, dispatcher, getAgents: () => enabledAgents() });
 
   function send(res, status, headers, body) {
     res.writeHead(status, { ...SECURITY_HEADERS, ...headers });
@@ -69,7 +71,7 @@ export function createApp({
   }
 
   function attentionAll(currentId) {
-    const out = [];
+    const out = [...lead.attention()];
     for (const r of dispatcher.list()) {
       if (r.status === 'review') out.push({ kind: 'review', run: r.id, project: r.project, text: `A task for ${r.agent} is waiting for your approval`, at: r.created });
     }
@@ -111,12 +113,23 @@ export function createApp({
       if (p === '/api/state') {
         const projects = listProjects();
         const proj = (url.searchParams.get('project') && projects.find((x) => x.id === url.searchParams.get('project'))) || projects[0];
-        if (!proj) return json(res, 200, { app: 'agency-hq', empty: true, projects: [], attention: attentionAll(null), dispatch: dispatcher.list() });
+        if (!proj) return json(res, 200, { app: 'agency-hq', empty: true, projects: [], attention: attentionAll(null), dispatch: dispatcher.list().filter((r) => !r.job), jobs: [], busy: 0 });
         const state = buildState({ project: proj, cacheDir, now: Date.now(), dispatchRuns: dispatcher.list() });
-        return json(res, 200, { ...state, attention: [...state.attention, ...attentionAll(proj.id)], dispatch: dispatcher.list().slice(0, 20) });
+        const jobs = lead.jobs.filter((j) => j.project === proj.id).slice(0, 10).map((j) => ({
+          id: j.id, goal: j.goal, status: j.status, created: j.created, started: j.started, ended: j.ended,
+          summary: j.summary ? j.summary.slice(0, 400) : null, tasks: j.tasks.length, done: j.tasks.filter((t) => t.status === 'done').length,
+        }));
+        const active = lead.jobs.filter((j) => ['planning', 'following', 'running', 'summarizing'].includes(j.status)).length;
+        return json(res, 200, { ...state, jobs, activeJobs: active, attention: [...state.attention, ...attentionAll(proj.id)], dispatch: dispatcher.list().filter((r) => !r.job).slice(0, 20), busy: dispatcher.list().filter((r) => ['running', 'queued'].includes(r.status)).length });
       }
       if (p === '/api/roster') return json(res, 200, rosterWithUsage({ cacheDir }));
-      if (p === '/api/dispatch') return json(res, 200, { runs: dispatcher.list(), max: dispatcher.max });
+      if (p === '/api/dispatch') return json(res, 200, { runs: dispatcher.list().filter((r) => !r.job), max: dispatcher.max });
+      if (p === '/api/jobs') return json(res, 200, { jobs: lead.list(), max: dispatcher.max });
+      const jm = /^\/api\/jobs\/([a-f0-9]{12})$/.exec(p);
+      if (jm) {
+        const j = lead.get(jm[1]);
+        return j ? json(res, 200, { job: lead.view(j) }) : fail(res, 404, 'That job no longer exists.');
+      }
       if (p === '/api/health') {
         const roster = readRoster();
         return json(res, 200, {
@@ -156,6 +169,42 @@ export function createApp({
       if (m) {
         const r = dispatcher[m[2]](m[1]);
         return json(res, 200, { ok: true, run: r ? dispatcher.list().find((x) => x.id === r.id) || null : null });
+      }
+      if (p === '/api/jobs') {
+        const project = findProject(body.project);
+        if (!project) return fail(res, 400, 'Pick a project from the list.');
+        const j = lead.create({ goal: body.goal, project, mode: body.mode, parallel: body.parallel ?? 2 });
+        return json(res, 200, { ok: true, job: lead.view(j) });
+      }
+      const ja = /^\/api\/jobs\/([a-f0-9]{12})\/(plan|approve|replan|followup|stop|resume|finish|discard)$/.exec(p);
+      if (ja) {
+        const [, id, what] = ja;
+        if (what === 'plan') lead.savePlan(id, body.tasks);
+        else if (what === 'approve') lead.approve(id, { tasks: body.tasks, confirmEdit: body.confirmEdit === true });
+        else if (what === 'replan') lead.replan(id);
+        else if (what === 'followup') lead.followup(id, body.text);
+        else if (what === 'stop') lead.stop(id);
+        else if (what === 'resume') lead.resume(id);
+        else if (what === 'finish') lead.finishNow(id);
+        else lead.discard(id);
+        const j = lead.get(id);
+        return json(res, 200, { ok: true, job: j ? lead.view(j) : null });
+      }
+      const jt = /^\/api\/jobs\/([a-f0-9]{12})\/tasks\/([A-Za-z0-9_-]{1,24})\/(cancel|retry|skip)$/.exec(p);
+      if (jt) {
+        lead.taskAction(jt[1], jt[2], jt[3]);
+        return json(res, 200, { ok: true, job: lead.view(lead.get(jt[1])) });
+      }
+      if (p === '/api/stop-all') {
+        const jobs = lead.stopAll();
+        let runs = 0;
+        for (const r of dispatcher.list()) {
+          if (!r.job && ['running', 'queued'].includes(r.status)) {
+            dispatcher.cancel(r.id);
+            runs++;
+          }
+        }
+        return json(res, 200, { ok: true, jobs, runs });
       }
       if (p === '/api/health/mcp') return json(res, 200, { ok: true, mcp: mcp.refresh() });
       if (p === '/api/plugins/toggle') {
@@ -207,6 +256,7 @@ export function createApp({
     });
   };
   handler.dispatcher = dispatcher;
+  handler.lead = lead;
   handler.mcp = mcp;
   return handler;
 }

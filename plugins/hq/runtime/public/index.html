@@ -16,7 +16,7 @@
 </script>
 <!--HQ_CONFIG-->
 </head>
-<body data-tab="office">
+<body data-tab="lead">
 <a class="skip" href="#main">Skip to content</a>
 <div class="loading" id="loading" aria-hidden="true"><div>Opening HQ<i></i></div></div>
 
@@ -30,12 +30,14 @@
     <select id="project" title="Project (P)"></select>
   </label>
   <nav class="tabs" aria-label="Views">
-    <button type="button" data-go="office" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
+    <button type="button" data-go="lead" class="lead-tab" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M5.5 20c.6-3.6 3.2-5.8 6.5-5.8s5.9 2.2 6.5 5.8"/><path d="M3 11.5l2.2 1.2M21 11.5l-2.2 1.2"/></svg><span>Ask the Lead</span><b class="count" id="leadCount" hidden></b></button>
+    <button type="button" data-go="office"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
     <button type="button" data-go="roster"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Roster</span></button>
     <button type="button" data-go="dispatch"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 5v14"/></svg><span>Dispatch</span><b class="count" id="dispatchCount" hidden></b></button>
     <button type="button" data-go="health"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg><span>Health</span><b class="count warn" id="healthCount" hidden></b></button>
   </nav>
   <div class="tools">
+    <button type="button" class="stopall" id="stopAllBtn" hidden aria-haspopup="dialog"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg><span>Stop everything</span></button>
     <button type="button" class="attn" id="attnBtn" hidden aria-haspopup="dialog"><i aria-hidden="true"></i><span id="attnTxt"></span></button>
     <span class="live" id="live" title="Connection"><i></i><span id="liveTxt">Connecting</span></span>
     <button type="button" class="icon" id="shareBtn" title="Open on your phone"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/></svg><span class="sr">Open on your phone</span></button>
@@ -45,6 +47,37 @@
 </header>
 
 <main id="main" tabindex="-1">
+  <!-- ASK THE LEAD -->
+  <section class="view page lead-page" data-view="lead" aria-labelledby="leadH">
+    <div class="page-head"><div><h1 id="leadH">Ask the Lead</h1><p class="sub">Give the Lead a goal. It reads the project, splits the work into tasks and picks an agent for each. You check the plan, then it runs everything and tells you how it went.</p></div></div>
+    <form class="ask" id="ask" novalidate>
+      <label class="field ask-goal">
+        <span class="label">What do you want done?</span>
+        <textarea id="lead-goal" rows="3" maxlength="4000" placeholder="For example: get this app ready for a Play Store launch"></textarea>
+      </label>
+      <div class="ask-row">
+        <label class="field"><span class="label">Project</span><select id="lead-project"></select></label>
+        <fieldset class="field">
+          <legend class="label">Agents may</legend>
+          <div class="seg seg-mode" role="radiogroup" aria-label="Agents may">
+            <label><input type="radio" name="lead-mode" id="lead-mode-read" value="read" checked><span>Only read</span></label>
+            <label class="warnable"><input type="radio" name="lead-mode" id="lead-mode-edit" value="edit"><span>Edit files</span></label>
+          </div>
+        </fieldset>
+        <label class="field narrow"><span class="label">Agents at once</span><select id="lead-parallel"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+        <button type="submit" class="primary big" id="askBtn">Plan it</button>
+      </div>
+      <p class="sub" id="askNote">Planning only reads the project. Nothing else runs until you approve the plan.</p>
+      <div class="formerr" id="askErr" role="alert" hidden></div>
+    </form>
+    <div id="jobs" class="jobs" aria-live="polite"></div>
+    <div id="job" class="job" hidden>
+      <div id="jobHead"></div>
+      <div id="jobBody"></div>
+      <div id="jobFoot"></div>
+    </div>
+  </section>
+
   <!-- OFFICE -->
   <section class="view view-office" data-view="office" aria-label="Office">
     <div class="banner" id="banner" role="status" hidden></div>
@@ -149,7 +182,8 @@
 </main>
 
 <nav class="bottombar" aria-label="Views">
-  <button type="button" data-go="office" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
+  <button type="button" data-go="lead" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2"/><path d="M5.5 20c.6-3.6 3.2-5.8 6.5-5.8s5.9 2.2 6.5 5.8"/><path d="M3 11.5l2.2 1.2M21 11.5l-2.2 1.2"/></svg><span>Lead</span></button>
+  <button type="button" data-go="office"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
   <button type="button" data-go="roster"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Roster</span></button>
   <button type="button" data-go="dispatch"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 5v14"/></svg><span>Dispatch</span></button>
   <button type="button" data-go="health"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg><span>Health</span></button>
@@ -161,6 +195,11 @@
   <form method="dialog" class="dlg-head"><h2 id="attnH">Needs you</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
   <ul id="attnList" class="attnlist"></ul>
 </dialog>
+<dialog id="stopDlg" class="dlg" aria-labelledby="stopH">
+  <form method="dialog" class="dlg-head"><h2 id="stopH">Stop everything?</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
+  <p id="stopTxt"></p>
+  <div class="btns"><button type="button" class="danger" id="stopGo">Stop everything</button><button type="button" class="ghost" id="stopNo">Keep running</button></div>
+</dialog>
 <dialog id="shareDlg" class="dlg" aria-labelledby="shareH">
   <form method="dialog" class="dlg-head"><h2 id="shareH">Open HQ on your phone</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
   <div id="shareBody"></div>
@@ -168,8 +207,8 @@
 <dialog id="helpDlg" class="dlg" aria-labelledby="helpH">
   <form method="dialog" class="dlg-head"><h2 id="helpH">Keyboard shortcuts</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
   <dl class="keys">
-    <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Office, Roster, Dispatch, Health</dd>
-    <dt><kbd>/</kbd></dt><dd>Search the roster, or write a task on Dispatch</dd>
+    <dt><kbd>1</kbd>–<kbd>5</kbd></dt><dd>Ask the Lead, Office, Roster, Dispatch, Health</dd>
+    <dt><kbd>/</kbd></dt><dd>Write a goal for the Lead, search the roster, or write a task on Dispatch</dd>
     <dt><kbd>P</kbd></dt><dd>Switch project</dd>
     <dt><kbd>N</kbd></dt><dd>Show what needs you</dd>
     <dt><kbd>H</kbd></dt><dd>Hide or show the office panels</dd>

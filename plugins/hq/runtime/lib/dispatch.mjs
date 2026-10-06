@@ -7,7 +7,7 @@ import path from 'node:path';
 import { describeTool } from './transcripts.mjs';
 import { isDir, isPlainObj, readJson, redact, safeLine, values } from './util.mjs';
 
-const KEEP = 50;
+const KEEP = 200;
 const EVENTS_KEEP = 60;
 export const MODES = {
   read: {
@@ -43,6 +43,7 @@ export class Dispatcher {
     this.spawn = spawn;
     this.onChange = onChange;
     this.children = new Map();
+    this.finishHooks = []; // called with each run once it reaches done/failed/cancelled (used by Ask the Lead)
     this.runs = [];
     const saved = readJson(this.file, []);
     for (const r of Array.isArray(saved) ? saved : []) {
@@ -97,9 +98,28 @@ export class Dispatcher {
     return run;
   }
 
+  // A run that skips the per-run Review step because its owner (an approved Lead job) already approved it.
+  createQueued({ task, agent, project, mode, args, job, kind, taskId = null }) {
+    if (!MODES[mode]) throw new Error('Pick Read-only or Can edit files.');
+    if (!project || typeof project.cwd !== 'string' || !isDir(project.cwd)) throw new Error('That project folder no longer exists on this computer.');
+    const run = {
+      id: crypto.randomBytes(6).toString('hex'),
+      task: String(task).slice(0, 4000), agent: String(agent || 'general-purpose'), mode, modeLabel: MODES[mode].label, modeExplain: MODES[mode].explain,
+      project: project.id, projectName: project.name, cwd: project.cwd, job, kind, taskId,
+      status: 'queued', created: new Date().toISOString(), started: null, updated: null, ended: null,
+      command: displayCommand(this.bin, args), args,
+      events: [], tools: 0, tokens: 0, result: null, error: null, costUsd: null, durationMs: null, sessionId: null,
+    };
+    this.runs.unshift(run);
+    this.save();
+    this.pump();
+    return run;
+  }
+
   approve(id) {
     const r = this.get(id);
     if (!r) throw new Error('That run no longer exists.');
+    if (r.job) throw new Error('This run belongs to a Lead job. Manage it on Ask the Lead.');
     if (r.status !== 'review') throw new Error('This run was already approved or closed.');
     r.status = 'queued';
     r.updated = new Date().toISOString();
@@ -134,6 +154,7 @@ export class Dispatcher {
   discard(id) {
     const r = this.get(id);
     if (!r) return null;
+    if (r.job && ['running', 'queued'].includes(r.status)) throw new Error('This run belongs to a Lead job. Stop it on Ask the Lead.');
     if (r.status === 'running' || r.status === 'queued') throw new Error('Cancel the run before removing it.');
     this.runs = this.runs.filter((x) => x.id !== id);
     this.save();
@@ -207,6 +228,13 @@ export class Dispatcher {
     }
     delete r.cancelRequested;
     this.save();
+    for (const hook of this.finishHooks) {
+      try {
+        hook(r);
+      } catch (e) {
+        console.error(`[hq] finish hook: ${e && e.stack ? e.stack : e}`);
+      }
+    }
     this.pump();
   }
 

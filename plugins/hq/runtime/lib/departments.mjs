@@ -26,6 +26,7 @@ export function department(plugin) {
 // "engineering:code-reviewer" → {agent:'code-reviewer', plugin:'engineering', ...}
 export function identify(agentType) {
   const t = String(agentType || 'general-purpose');
+  if (t === 'hq:lead') return { agent: 'Lead (HQ)', plugin: 'hq', builtIn: false, department: DEPARTMENTS.hq.label, color: DEPARTMENTS.hq.color };
   const i = t.indexOf(':');
   const plugin = i > 0 ? t.slice(0, i) : null;
   const agent = i > 0 ? t.slice(i + 1) : t;

@@ -1,4 +1,4 @@
-// Agency HQ — page logic: tabs, polling, the office panels (and lite 2D mode), Roster, Dispatch, Health.
+// Agency HQ — page logic: tabs, polling, the office panels (and lite 2D mode), Ask the Lead, Roster, Dispatch, Health.
 // Office panel rendering adapted from humaedihume/kantor-agent runtime/public/assets/kantor.js (MIT, Copyright (c) 2026 humaedihume).
 const CFG = window.HQ || {};
 let office = null; // the 3D module, loaded on demand
@@ -37,7 +37,11 @@ function dur(a, b) {
   return `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`;
 }
 const initial = (s) => Array.from(String(s || '?').replace(/^Desk /, ''))[0].toUpperCase();
-const STATE = { working: 'Working', done: 'Done', idle: 'Idle', stopped: 'Stopped', limit: 'Limit', review: 'Needs approval', queued: 'Queued', running: 'Running', failed: 'Failed', cancelled: 'Cancelled' };
+const STATE = {
+  working: 'Working', done: 'Done', idle: 'Idle', stopped: 'Stopped', limit: 'Limit', review: 'Needs approval', queued: 'Queued', running: 'Running', failed: 'Failed', cancelled: 'Cancelled',
+  waiting: 'Waiting', blocked: 'Needs you', skipped: 'Skipped', interrupted: 'Interrupted', planning: 'Planning', 'plan-ready': 'Plan ready', 'plan-failed': 'No plan',
+  paused: 'Needs you', summarizing: 'Summarising', following: 'Planning more',
+};
 const pill = (state, label = STATE[state] || state) => `<span class="pill s-${esc(state)}"><i></i>${esc(label)}</span>`;
 
 // ------------------------------------------------------------------ network
@@ -190,11 +194,11 @@ function selectCard(key) {
 }
 
 // ------------------------------------------------------------------ tabs
-const TABS = ['office', 'roster', 'dispatch', 'health'];
-let tab = 'office';
+const TABS = ['lead', 'office', 'roster', 'dispatch', 'health'];
+let tab = 'lead';
 const loaded = new Set();
 function go(t, { focus = false } = {}) {
-  if (!TABS.includes(t)) t = 'office';
+  if (!TABS.includes(t)) t = 'lead';
   tab = t;
   document.body.dataset.tab = t;
   document.querySelectorAll('[data-view]').forEach((v) => { v.hidden = v.dataset.view !== t; });
@@ -206,6 +210,7 @@ function go(t, { focus = false } = {}) {
   if (t === 'roster') loadRoster(!loaded.has('roster'));
   if (t === 'health') loadHealth();
   if (t === 'dispatch') loadDispatch();
+  if (t === 'lead') loadLead();
   loaded.add(t);
   if (focus) $('main').focus({ preventScroll: true });
 }
@@ -230,6 +235,7 @@ async function loadProjects() {
     + projects.map((p) => `<option value="${esc(p.id)}" title="${esc(p.cwd || p.id)}">${esc(p.name)}</option>`).join('');
   sel.value = projects.some((p) => p.id === cur) ? cur : '';
   fillDispatchProjects();
+  fillLeadProjects();
 }
 $('project').addEventListener('change', (e) => {
   projectId = e.target.value;
@@ -253,6 +259,7 @@ async function poll() {
     if (d.lead) office?.apply(d);
     renderAttention(d.attention || []);
     renderDispatchBadge(d.dispatch || []);
+    renderBusy(d);
     if (tab === 'dispatch' && d.dispatch) mergeRuns(d.dispatch);
   } catch {
     $('live').classList.add('off');
@@ -276,8 +283,12 @@ function feedHtml(list, fresh) {
   }).join('') || '<li><div class="empty" style="grid-column:1/-1">No activity yet.</div></li>';
 }
 function runsHtml(runs) {
-  return runs.length ? runs.map((r) => `<div class="run" style="--c:${esc(r.color)}"><span class="c"></span><span class="t" title="${esc(r.task)}">${esc(r.task)}</span>${pill(r.status)}<span class="w">${esc(r.label)}${r.department ? `, ${esc(r.department)}` : ''}${r.dispatched ? ', from Dispatch' : ''} · ${esc(hhmm(r.started))} · ${esc(dur(r.started, r.ended))}</span></div>`).join('')
+  return runs.length ? runs.map((r) => `<div class="run" style="--c:${esc(r.color)}"><span class="c"></span><span class="t" title="${esc(r.task)}">${esc(r.task)}</span>${pill(r.status)}<span class="w">${esc(r.label)}${r.department ? `, ${esc(r.department)}` : ''}${r.fromJob ? ', from Ask the Lead' : r.dispatched ? ', from Dispatch' : ''} · ${esc(hhmm(r.started))} · ${esc(dur(r.started, r.ended))}</span></div>`).join('')
     : '<div class="empty">No agent runs in this project in the last 7 days.</div>';
+}
+function jobsHistoryHtml(jobs) {
+  if (!jobs.length) return '';
+  return `<div class="src">Lead jobs in this project.</div>${jobs.map((j) => `<button type="button" class="run jobrun" data-openjob="${esc(j.id)}" style="--c:#1c6e8c"><span class="c"></span><span class="t" title="${esc(j.goal)}">${esc(j.goal)}</span>${pill(j.status)}<span class="w">${esc(j.done)} of ${esc(j.tasks)} tasks done · ${esc(ago(j.created))}${j.summary ? ` · ${esc(j.summary.replace(/\s+/g, ' ').slice(0, 120))}` : ''}</span></button>`).join('')}`;
 }
 function cardHtml({ key, name, dep, color, state, task, act: action, working }) {
   return `<button type="button" class="card${working ? ' working' : ''}${selected === key ? ' sel' : ''}" data-focus="${esc(key)}" style="--c:${esc(color)}"><span class="ava">${esc(initial(name))}</span><div class="h"><span class="nm">${esc(name)}</span>${pill(state)}</div><div class="dep">${esc(dep || '')}</div><div class="task" title="${esc(task)}">${esc(task || '')}</div><div class="act" title="${esc(action)}">${esc(action || '')}</div></button>`;
@@ -295,7 +306,7 @@ function cardsFor(d) {
       cards.push(cardHtml({ key: m.key, name: `Desk ${m.slot + 1}`, dep: 'Free desk', color: m.look || m.color, state: 'idle', task: r ? `Last: ${r.agent}` : 'Waiting for work', act: r ? `finished ${ago(r.ended)}` : '', working: false }));
     } else {
       const action = m.state === 'working' ? r?.last?.[0]?.text || 'Getting started' : `Finished ${ago(r?.ended)}`;
-      cards.push(cardHtml({ key: m.key, name: m.name, dep: `${m.department}${r?.dispatched ? ', from Dispatch' : ''}`, color: m.color, state: m.state, task: r?.task || '', act: action, working: m.state === 'working' }));
+      cards.push(cardHtml({ key: m.key, name: m.name, dep: `${m.department}${r?.fromJob ? ', for the Lead' : r?.dispatched ? ', from Dispatch' : ''}`, color: m.color, state: m.state, task: r?.task || '', act: action, working: m.state === 'working' }));
     }
   }
   const seated = d.extras.filter((f) => f.desk !== null && f.desk < (d.spare_desks || 4));
@@ -326,7 +337,7 @@ function renderOffice(d) {
   const mine = (d.attention || []).filter((a) => a.project === d.project.id);
   if (mine.length) {
     banner.className = 'banner';
-    banner.innerHTML = `${esc(mine[0].text)}${mine[0].kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : ''}`;
+    banner.innerHTML = `${esc(mine[0].text)}${mine[0].kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : mine[0].kind === 'job' ? ` <button type="button" data-openjob="${esc(mine[0].job)}">Open</button>` : ''}`;
     banner.hidden = false;
   } else if (!d.transcripts || (!d.runs.length && !d.lead.updated)) {
     banner.className = 'banner calm';
@@ -338,7 +349,7 @@ function renderOffice(d) {
   for (const id of ['feed', 'feed2']) if ($(id).innerHTML !== feed) $(id).innerHTML = feed;
   $('feedCount').textContent = fmtNum.format(d.feed.length);
   $('nRuns').textContent = fmtNum.format(d.runs.length);
-  const runs = `<div class="src">Agent runs in ${esc(d.project.name)}, last 7 days, newest first.</div>${runsHtml(d.runs)}`;
+  const runs = `${jobsHistoryHtml(d.jobs || [])}<div class="src">Agent runs in ${esc(d.project.name)}, last 7 days, newest first.</div>${runsHtml(d.runs)}`;
   if ($('paneRuns').innerHTML !== runs) $('paneRuns').innerHTML = runs;
   const todos = d.lead.todos;
   $('nTodo').textContent = fmtNum.format(todos ? todos.items.filter((it) => it.status !== 'completed').length : 0);
@@ -355,12 +366,12 @@ function renderOffice(d) {
   if (lite()) {
     const working = d.staff.filter((m) => m.state === 'working').length + d.extras.filter((f) => f.state === 'working').length;
     $('liteStatus').innerHTML = `<h1>${esc(d.project.name)}</h1><span class="stat"><b>${fmtNum.format(working)}</b> agent${working === 1 ? '' : 's'} working</span><span class="stat">Lead: <b>${esc(STATE[d.lead.state] || d.lead.state)}</b></span><span class="stat"><b>${fmtNum.format(d.runs.length)}</b> runs this week</span>`;
-    $('liteAttn').innerHTML = mine.map((a) => `<div class="banner" style="position:static;transform:none">${esc(a.text)}${a.kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : ''}</div>`).join('');
+    $('liteAttn').innerHTML = mine.map((a) => `<div class="banner" style="position:static;transform:none">${esc(a.text)}${a.kind === 'review' ? ' <button type="button" data-go="dispatch">Review</button>' : a.kind === 'job' ? ` <button type="button" data-openjob="${esc(a.job)}">Open</button>` : ''}</div>`).join('');
     const items = cards.map((c) => `<li>${c}</li>`).join('');
     if ($('liteAgents').innerHTML !== items) $('liteAgents').innerHTML = items;
     const lf = feedHtml(d.feed.slice(0, 40), fresh);
     if ($('liteFeed').innerHTML !== lf) $('liteFeed').innerHTML = lf;
-    $('liteRuns').innerHTML = runsHtml(d.runs.slice(0, 20));
+    $('liteRuns').innerHTML = jobsHistoryHtml(d.jobs || []) + runsHtml(d.runs.slice(0, 20));
   }
 }
 
@@ -369,7 +380,7 @@ let attention = [];
 function renderAttention(list) {
   const seen = new Set();
   attention = list.filter((a) => {
-    const k = `${a.kind}|${a.project}|${a.run || ''}`;
+    const k = `${a.kind}|${a.project}|${a.run || ''}|${a.job || ''}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -383,7 +394,7 @@ function renderAttention(list) {
 }
 function fillAttention() {
   $('attnList').innerHTML = attention.length ? attention.map((a, i) => {
-    const btn = a.kind === 'review' ? `<button type="button" class="primary" data-attn="${i}">Review</button>` : `<button type="button" class="ghost" data-attn="${i}">Show in office</button>`;
+    const btn = a.kind === 'review' ? `<button type="button" class="primary" data-attn="${i}">Review</button>` : a.kind === 'job' ? `<button type="button" class="primary" data-attn="${i}">Open</button>` : `<button type="button" class="ghost" data-attn="${i}">Show in office</button>`;
     return `<li><span>${esc(a.text)}<br><small class="sub">${esc(ago(a.at))}</small></span>${btn}</li>`;
   }).join('') : '<li>Nothing needs you right now.</li>';
 }
@@ -396,7 +407,9 @@ $('attnList').addEventListener('click', (e) => {
   if (!b) return;
   const a = attention[Number(b.dataset.attn)];
   $('attnDlg').close();
-  if (a.kind === 'review') {
+  if (a.kind === 'job') {
+    openJob(a.job);
+  } else if (a.kind === 'review') {
     go('dispatch');
     setTimeout(() => document.querySelector(`[data-run="${a.run}"]`)?.scrollIntoView({ block: 'center' }), 300);
   } else {
@@ -597,7 +610,7 @@ function runCard(r) {
     const ev = (r.events || []).slice(-6);
     if (ev.length) body += `<ul class="events">${ev.map((e) => `<li><time>${esc(hhmmss(e.t))}</time><span>${esc(e.text)}</span></li>`).join('')}</ul>`;
     if (r.status === 'running') body += `<div class="sub"><span class="working-dots">Working</span> for ${esc(dur(r.started))}, ${fmtNum.format(r.tools || 0)} actions</div>`;
-    if (r.status === 'queued') body += `<div class="sub">Waiting for a free slot. HQ runs up to two tasks at once.</div>`;
+    if (r.status === 'queued') body += `<div class="sub">Waiting for a free slot.</div>`;
     if (r.result) body += `<details open><summary>Result</summary><pre>${esc(r.result)}</pre></details>`;
     if (r.error && r.status !== 'done') body += `<div class="err">${esc(r.error)}</div>`;
     const meta = [r.durationMs ? `${(r.durationMs / 1000).toFixed(1)} s` : r.started && r.ended ? dur(r.started, r.ended) : '', r.tools ? `${fmtNum.format(r.tools)} actions` : '', r.tokens ? `${fmtCompact.format(r.tokens)} tokens` : '', typeof r.costUsd === 'number' ? `$${r.costUsd.toFixed(r.costUsd < 0.1 ? 3 : 2)}` : ''].filter(Boolean);
@@ -747,6 +760,480 @@ $('mcpBtn').onclick = async () => {
   loadHealth();
 };
 
+// ------------------------------------------------------------------ ask the lead
+let jobs = [];
+let jobId = store.get('job', '') || null;
+let leadTimer = null;
+const drafts = new Map(); // job id -> { tasks, base, dirty }
+const ACTIVE_JOB = new Set(['planning', 'following', 'running', 'summarizing']);
+const COLS = [
+  ['waiting', 'Waiting', (t) => t.status === 'waiting' || (t.status === 'running' && t.live?.status === 'queued')],
+  ['running', 'Running', (t) => t.status === 'running' && t.live?.status !== 'queued'],
+  ['blocked', 'Needs you', (t) => t.status === 'blocked'],
+  ['done', 'Done', (t) => t.status === 'done' || t.status === 'skipped'],
+  ['failed', 'Failed', (t) => ['failed', 'cancelled', 'interrupted'].includes(t.status)],
+];
+function agentInfo(id) {
+  if (!id || id === 'general-purpose') return { name: 'general', department: 'No specialist', color: 'var(--muted)' };
+  const a = enabledAgents().find((x) => x.id === id);
+  return a ? { name: a.name, department: a.department, color: a.color } : { name: id, department: 'Not installed', color: 'var(--muted)' };
+}
+function agentOptions(selected) {
+  const groups = {};
+  for (const a of enabledAgents()) (groups[a.department] ||= []).push(a);
+  const known = selected === 'general-purpose' || enabledAgents().some((a) => a.id === selected);
+  return `<option value="general-purpose"${selected === 'general-purpose' ? ' selected' : ''}>general (no specialist)</option>`
+    + (known ? '' : `<option value="${esc(selected)}" selected>${esc(selected)} (not installed)</option>`)
+    + Object.entries(groups).map(([g, list]) => `<optgroup label="${esc(g)}">${list.map((a) => `<option value="${esc(a.id)}"${a.id === selected ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</optgroup>`).join('');
+}
+function fillLeadProjects() {
+  const sel = $('lead-project');
+  const cur = sel.value || projectId || projects[0]?.id || '';
+  const usable = projects.filter((p) => p.exists);
+  sel.innerHTML = usable.length ? usable.map((p) => `<option value="${esc(p.id)}" title="${esc(p.cwd)}">${esc(p.name)}</option>`).join('') : '<option value="">No project folders found</option>';
+  if (usable.some((p) => p.id === cur)) sel.value = cur;
+}
+const jobMeta = (j) => [
+  `${fmtNum.format(j.runs || 0)} agent run${j.runs === 1 ? '' : 's'}`,
+  j.tokens ? `${fmtCompact.format(j.tokens)} tokens` : '',
+  j.costUsd ? `$${j.costUsd.toFixed(j.costUsd < 0.1 ? 3 : 2)}` : '',
+  j.started ? dur(j.started, j.ended) : '',
+].filter(Boolean);
+function jobCard(j) {
+  const total = j.tasks.length;
+  const done = (j.counts.done || 0) + (j.counts.skipped || 0);
+  const progress = total ? `<span class="bar" aria-hidden="true"><i style="width:${Math.round((done / total) * 100)}%"></i></span><span>${done} of ${total} tasks</span>` : '<span>No plan yet</span>';
+  return `<button type="button" class="jcard s-${esc(j.status)}" data-job="${esc(j.id)}"><span class="g">${esc(j.goal)}</span><span class="jrow">${pill(j.status)}<span class="where">${esc(j.projectName)} · ${j.mode === 'edit' ? 'can edit files' : 'read-only'} · ${esc(ago(j.created))}</span></span><span class="prog">${progress}</span></button>`;
+}
+function renderJobList() {
+  const box = $('jobs');
+  if (jobId && jobs.some((j) => j.id === jobId)) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  $('job').hidden = true;
+  const html = jobs.length
+    ? `<div class="jobs-head"><h2>Jobs</h2><span class="sub">${jobs.filter((j) => ACTIVE_JOB.has(j.status)).length} active, ${jobs.length} total</span></div><div class="joblist">${jobs.map(jobCard).join('')}</div>`
+    : `<div class="jobs-empty"><h2>How it works</h2><ol class="how"><li><b>You set the goal.</b> Plain words are fine.</li><li><b>The Lead plans.</b> It reads the project and proposes tasks, each with the agent best suited to it.</li><li><b>You check the plan.</b> Change agents, edit instructions, reorder, add or remove tasks.</li><li><b>Agents do the work.</b> Watch them at their desks in the Office. Anything that fails waits for you.</li><li><b>The Lead reports back.</b> A short summary of what was done and what is next.</li></ol></div>`;
+  if (box.innerHTML !== html) box.innerHTML = html;
+}
+function openJob(id) {
+  jobId = id;
+  store.set('job', id || '');
+  if (tab !== 'lead') go('lead');
+  else loadLead();
+  window.scrollTo(0, 0);
+}
+function closeJob() {
+  jobId = null;
+  store.set('job', '');
+  renderLead();
+}
+document.addEventListener('click', (e) => {
+  const o = e.target.closest('[data-openjob]');
+  if (o) {
+    openJob(o.dataset.openjob);
+    return;
+  }
+  const c = e.target.closest('[data-job]');
+  if (c && c.closest('#jobs')) openJob(c.dataset.job);
+});
+
+function renderLead() {
+  renderJobList();
+  const j = jobs.find((x) => x.id === jobId);
+  const box = $('job');
+  $('ask').hidden = !!j; // an open job gets the whole page; "All jobs" brings the form back
+  if (!j) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  renderJobHead(j);
+  renderJobBody(j);
+  renderJobFoot(j);
+}
+function renderJobHead(j) {
+  const btn = [];
+  if (ACTIVE_JOB.has(j.status) || j.status === 'paused') btn.push(`<button type="button" class="danger" data-jact="stop">Stop job</button>`);
+  if (j.status === 'interrupted' || j.status === 'stopped') btn.push(`<button type="button" class="primary" data-jact="resume">Pick up again</button>`);
+  if (['paused', 'stopped', 'interrupted'].includes(j.status) && j.tasks.some((t) => t.status === 'done')) btn.push(`<button type="button" class="ghost" data-jact="finish">Finish and summarise</button>`);
+  btn.push(`<button type="button" class="ghost" data-openoffice="${esc(j.project)}">Watch in office</button>`);
+  if (!ACTIVE_JOB.has(j.status)) btn.push(`<button type="button" class="ghost" data-jact="discard">Remove</button>`);
+  const meta = jobMeta(j);
+  const html = `<button type="button" class="back" data-back><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>All jobs</button>
+<div class="jhead"><div class="jtitle"><div class="jrow">${pill(j.status)}<span class="where">${esc(j.projectName)} · ${j.mode === 'edit' ? 'agents may edit files' : 'read-only'} · up to ${esc(j.parallel)} at once · ${esc(ago(j.created))}</span></div><h2 class="goal">${esc(j.goal)}</h2>${meta.length ? `<div class="meta">${meta.map((m) => `<span>${esc(m)}</span>`).join('')}</div>` : ''}</div><div class="btns">${btn.join('')}</div></div>`;
+  if ($('jobHead').innerHTML !== html) $('jobHead').innerHTML = html;
+}
+function leadActivity(j, title) {
+  const ev = j.lead?.events || [];
+  return `<div class="leadbox"><span class="ava lead-ava" aria-hidden="true">L</span><div><b>${esc(title)}</b><div class="sub"><span class="working-dots">${j.lead?.status === 'queued' ? 'Waiting for a free slot' : 'Working'}</span>${j.lead?.started ? ` for ${esc(dur(j.lead.started))}` : ''}</div>${ev.length ? `<ul class="events">${ev.slice(-4).map((e) => `<li><time>${esc(hhmmss(e.t))}</time><span>${esc(e.text)}</span></li>`).join('')}</ul>` : ''}</div></div>`;
+}
+function renderJobBody(j) {
+  const body = $('jobBody');
+  if (j.status === 'plan-ready') {
+    let d = drafts.get(j.id);
+    if (!d || (!d.dirty && d.base !== j.updated)) {
+      d = { tasks: j.tasks.filter((t) => t.status === 'waiting').map(({ id, title, prompt, agent, mode, depends_on, note, isNew }) => ({ id, title, prompt, agent, mode, depends_on: [...depends_on], note, isNew })), base: j.updated, dirty: false };
+      drafts.set(j.id, d);
+      body.dataset.key = '';
+    }
+    const key = `plan|${j.id}|${d.base}|${d.rev || 0}`;
+    if (body.dataset.key !== key) {
+      body.dataset.key = key;
+      body.innerHTML = planEditor(j, d);
+    } else updateConfirm(j, d);
+    return;
+  }
+  body.dataset.key = '';
+  let html = '';
+  if (j.status === 'planning') html += leadActivity(j, 'The Lead is reading the project and writing a plan');
+  if (j.status === 'following') html += leadActivity(j, 'The Lead is planning the extra work');
+  if (j.status === 'summarizing') html += leadActivity(j, 'The Lead is writing the summary');
+  if (j.status === 'plan-failed') {
+    html += `<div class="notice n-bad"><b>The Lead could not make a plan.</b> ${esc(j.planError || '')}${j.planRaw ? `<details><summary>What the Lead said</summary><pre>${esc(j.planRaw)}</pre></details>` : ''}<div class="btns"><button type="button" class="primary" data-jact="replan">Plan again</button></div></div>`;
+  }
+  if (j.status === 'stopped' && !j.tasks.length) html += `<div class="notice">${esc(j.planError || 'Stopped before a plan was made.')} <button type="button" class="ghost" data-jact="resume">Plan again</button></div>`;
+  if (j.status === 'paused') html += `<div class="notice n-attn"><b>Paused.</b> A task failed, so the tasks that depend on it are waiting for you. Retry it, skip it, or finish and summarise.</div>`;
+  if (j.followupError) html += `<div class="notice n-bad">The Lead could not plan the extra work: ${esc(j.followupError)}</div>`;
+  if (j.summary || j.summaryError) {
+    html += `<section class="summary"><h3>The Lead's summary</h3>${j.summary ? `<div class="prose">${esc(j.summary)}</div>` : `<p class="err">${esc(j.summaryError)}</p>`}</section>`;
+  }
+  if (j.tasks.length) html += board(j);
+  if (body.innerHTML !== html) {
+    const open = new Set([...body.querySelectorAll('details[open]')].map((x) => x.dataset.k));
+    body.innerHTML = html;
+    body.querySelectorAll('details[data-k]').forEach((x) => { if (open.has(x.dataset.k)) x.open = true; });
+  }
+}
+function board(j) {
+  const byId = new Map(j.tasks.map((t) => [t.id, t]));
+  const cols = COLS.map(([k, label, test]) => {
+    const list = j.tasks.filter(test);
+    if (!list.length) return '';
+    return `<section class="col col-${k}" aria-label="${esc(label)}"><h3>${esc(label)} <b class="n">${list.length}</b></h3>${list.map((t) => taskCard(j, t, byId)).join('')}</section>`;
+  }).filter(Boolean);
+  return `<div class="board" style="--cols:${cols.length}">${cols.join('')}</div>`;
+}
+function taskCard(j, t, byId) {
+  const a = agentInfo(t.agent);
+  const deps = (t.depends_on || []).map((d) => byId.get(d)?.title || d);
+  const state = t.status === 'running' && t.live?.status === 'queued' ? 'queued' : t.status;
+  let body = '';
+  if (t.status === 'running' && t.live) {
+    const ev = t.live.events || [];
+    body += ev.length ? `<ul class="events">${ev.slice(-3).map((e) => `<li><time>${esc(hhmmss(e.t))}</time><span>${esc(e.text)}</span></li>`).join('')}</ul>` : '<div class="sub">Getting started</div>';
+  }
+  if (t.status === 'blocked') body += `<div class="sub">Waiting on ${esc(deps.filter((x, i) => ['failed', 'cancelled', 'interrupted', 'blocked'].includes(byId.get(t.depends_on[i])?.status)).join(', ') || 'an earlier task')}.</div>`;
+  if (t.result && t.status === 'done') body += `<details data-k="r-${esc(t.id)}"><summary>Result</summary><div class="prose small">${esc(t.result.slice(0, 4000))}</div></details>`;
+  if (t.error && t.status !== 'done') body += `<div class="err">${esc(t.error)}</div>`;
+  const btns = [];
+  if (j.status !== 'stopped' || t.status !== 'running') {
+    if (t.status === 'running') btns.push(`<button type="button" class="danger sm" data-tact="cancel" data-tid="${esc(t.id)}">Cancel</button>`);
+    if (['failed', 'cancelled', 'interrupted'].includes(t.status)) btns.push(`<button type="button" class="primary sm" data-tact="retry" data-tid="${esc(t.id)}">Retry</button>`);
+    if (['waiting', 'blocked', 'failed', 'cancelled', 'interrupted'].includes(t.status) && !['planning', 'summarizing', 'following'].includes(j.status)) btns.push(`<button type="button" class="ghost sm" data-tact="skip" data-tid="${esc(t.id)}">Skip</button>`);
+  }
+  const meta = [t.durationMs ? `${Math.round(t.durationMs / 1000)} s` : t.started && t.ended ? dur(t.started, t.ended) : t.started && t.status === 'running' && t.live?.started ? dur(t.live.started) : '', t.tokens ? `${fmtCompact.format(t.tokens)} tokens` : '', typeof t.costUsd === 'number' && t.costUsd ? `$${t.costUsd.toFixed(3)}` : '', t.attempts > 1 ? `try ${t.attempts}` : ''].filter(Boolean);
+  return `<article class="tcard${t.status === 'running' ? ' is-live' : ''}" style="--c:${esc(a.color)}"><div class="tc-top">${pill(state)}${t.mode === 'edit' ? '<span class="etag">edits files</span>' : ''}</div><h4>${esc(t.title)}</h4><div class="who"><span class="agent">${esc(a.name)}</span><span class="dep">${esc(a.department)}</span></div>${deps.length ? `<div class="after">After: ${esc(deps.join(', '))}</div>` : ''}${body}${meta.length ? `<div class="meta">${meta.map((m) => `<span>${esc(m)}</span>`).join('')}</div>` : ''}${btns.length ? `<div class="btns">${btns.join('')}</div>` : ''}</article>`;
+}
+function planEditor(j, d) {
+  const locked = j.tasks.filter((t) => t.status !== 'waiting');
+  const titleOf = (id) => d.tasks.find((t) => t.id === id)?.title || locked.find((t) => t.id === id)?.title || id;
+  const cards = d.tasks.map((t, i) => {
+    const a = agentInfo(t.agent);
+    const others = [...locked, ...d.tasks].filter((o) => o.id !== t.id);
+    return `<li class="pcard" data-i="${i}" style="--c:${esc(a.color)}">
+  <div class="pc-top"><span class="num">${i + 1}</span><label class="pc-title"><span class="sr">Task title</span><input type="text" id="pt-title-${esc(t.id)}" value="${esc(t.title)}" maxlength="120" data-f="title"></label>
+    <div class="pc-move"><button type="button" class="icon sm" data-pmove="-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button><button type="button" class="icon sm" data-pmove="1" ${i === d.tasks.length - 1 ? 'disabled' : ''} aria-label="Move down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><button type="button" class="icon sm" data-pdel aria-label="Remove this task"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
+  <div class="pc-row"><label class="pc-agent"><span class="label">Agent</span><select id="pt-agent-${esc(t.id)}" data-f="agent">${agentOptions(t.agent)}</select></label>${j.mode === 'edit' ? `<label class="pc-edit"><input type="checkbox" id="pt-edit-${esc(t.id)}" data-f="mode"${t.mode === 'edit' ? ' checked' : ''}> Can edit files</label>` : ''}</div>
+  ${t.note ? `<p class="note">${esc(t.note)}</p>` : ''}
+  <label class="pc-prompt"><span class="label">Instructions for the agent</span><textarea id="pt-prompt-${esc(t.id)}" rows="3" maxlength="4000" data-f="prompt">${esc(t.prompt)}</textarea></label>
+  ${others.length ? `<fieldset class="pc-deps"><legend class="label">Starts after</legend>${others.map((o) => `<label class="chip-check"><input type="checkbox" data-dep="${esc(o.id)}"${t.depends_on.includes(o.id) ? ' checked' : ''}><span>${esc(titleOf(o.id))}</span></label>`).join('')}</fieldset>` : ''}
+</li>`;
+  }).join('');
+  const lockedHtml = locked.length ? `<details class="locked"><summary>${locked.length} task${locked.length === 1 ? '' : 's'} already in this job</summary><ul>${locked.map((t) => `<li>${pill(t.status)} ${esc(t.title)} <span class="sub">${esc(agentInfo(t.agent).name)}</span></li>`).join('')}</ul></details>` : '';
+  const warn = (j.planWarnings || []).length ? `<ul class="warns">${j.planWarnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
+  return `<div class="plan">
+  <div class="plan-head"><h3>${locked.length ? 'The Lead proposes more work' : 'The Lead’s plan'}</h3>${j.planSummary && !locked.length ? `<p class="sub">${esc(j.planSummary)}</p>` : ''}<p class="sub">Check each task. Change the agent, rewrite the instructions, reorder, add or remove tasks. Nothing runs until you approve.</p></div>
+  ${lockedHtml}${warn}
+  <ol class="pcards">${cards}</ol>
+  <button type="button" class="ghost add" data-padd>+ Add a task</button>
+  <div class="approve" id="approveBox">${approveHtml(j, d)}</div>
+</div>`;
+}
+function approveHtml(j, d) {
+  const n = d.tasks.length;
+  const edits = d.tasks.filter((t) => t.mode === 'edit');
+  const confirm = edits.length ? `<label class="confirm"><input type="checkbox" id="confirmEdit"> <span>I understand ${edits.length === 1 ? 'this task' : `these ${edits.length} tasks`} can create and change files in <code>${esc(j.cwd)}</code> without asking: <b>${esc(edits.map((t) => t.title).join(', '))}</b></span></label>` : '';
+  return `${confirm}<p class="cost">Approving starts <b>${n} agent run${n === 1 ? '' : 's'}</b>, up to ${esc(j.parallel)} at a time, plus one more for the Lead's summary. Each run uses your Claude plan like any other session.</p><div class="formerr" id="planErr" role="alert" hidden></div><div class="btns"><button type="button" class="primary big" data-jact="approve"${n ? '' : ' disabled'}>Approve plan</button><button type="button" class="ghost" data-jact="replan"${j.tasks.some((t) => t.status !== 'waiting') ? ' hidden' : ''}>Plan again</button><button type="button" class="ghost" data-jact="discard">Discard</button></div>`;
+}
+function updateConfirm(j, d) {
+  const box = $('approveBox');
+  if (!box) return;
+  const was = $('confirmEdit')?.checked;
+  const html = approveHtml(j, d);
+  if (box.dataset.h !== html) {
+    box.innerHTML = html;
+    box.dataset.h = html;
+    if (was && $('confirmEdit')) $('confirmEdit').checked = true;
+  }
+}
+function draftOf() {
+  return drafts.get(jobId);
+}
+function rerenderPlan() {
+  const j = jobs.find((x) => x.id === jobId);
+  const d = draftOf();
+  if (!j || !d) return;
+  d.rev = (d.rev || 0) + 1;
+  renderJobBody(j);
+}
+$('jobBody').addEventListener('input', (e) => {
+  const li = e.target.closest('.pcard');
+  const d = draftOf();
+  if (!li || !d) return;
+  const t = d.tasks[Number(li.dataset.i)];
+  const f = e.target.dataset.f;
+  if (f === 'title' || f === 'prompt') {
+    t[f] = e.target.value;
+    d.dirty = true;
+  }
+});
+$('jobBody').addEventListener('change', (e) => {
+  const li = e.target.closest('.pcard');
+  const d = draftOf();
+  if (!li || !d) return;
+  const t = d.tasks[Number(li.dataset.i)];
+  const f = e.target.dataset.f;
+  d.dirty = true;
+  if (f === 'agent') {
+    t.agent = e.target.value;
+    t.note = '';
+    li.style.setProperty('--c', agentInfo(t.agent).color);
+  } else if (f === 'mode') {
+    t.mode = e.target.checked ? 'edit' : 'read';
+    const j = jobs.find((x) => x.id === jobId);
+    updateConfirm(j, d);
+  } else if (e.target.dataset.dep) {
+    const dep = e.target.dataset.dep;
+    t.depends_on = e.target.checked ? [...new Set([...t.depends_on, dep])] : t.depends_on.filter((x) => x !== dep);
+  }
+});
+$('jobBody').addEventListener('click', (e) => {
+  const d = draftOf();
+  const mv = e.target.closest('[data-pmove]');
+  const del = e.target.closest('[data-pdel]');
+  if (d && (mv || del)) {
+    const i = Number(e.target.closest('.pcard').dataset.i);
+    if (mv) {
+      const k = i + Number(mv.dataset.pmove);
+      [d.tasks[i], d.tasks[k]] = [d.tasks[k], d.tasks[i]];
+    } else {
+      const gone = d.tasks[i].id;
+      d.tasks.splice(i, 1);
+      for (const t of d.tasks) t.depends_on = t.depends_on.filter((x) => x !== gone);
+    }
+    d.dirty = true;
+    rerenderPlan();
+    return;
+  }
+  if (d && e.target.closest('[data-padd]')) {
+    let n = d.tasks.length + 1;
+    while (d.tasks.some((t) => t.id === `new${n}`)) n++;
+    d.tasks.push({ id: `new${n}`, title: '', prompt: '', agent: 'general-purpose', mode: 'read', depends_on: [], note: '' });
+    d.dirty = true;
+    rerenderPlan();
+    setTimeout(() => $(`pt-title-new${n}`)?.focus(), 30);
+  }
+});
+async function jobAction(what, extra = {}) {
+  const j = jobs.find((x) => x.id === jobId);
+  if (!j) return;
+  if (what === 'approve') {
+    const d = draftOf();
+    const err = $('planErr');
+    err.hidden = true;
+    const empty = d.tasks.find((t) => !t.prompt.trim());
+    if (empty) {
+      err.textContent = `“${empty.title || 'A new task'}” has no instructions. Write what the agent should do, or remove the task.`;
+      err.hidden = false;
+      return;
+    }
+    if (d.tasks.some((t) => t.mode === 'edit') && !$('confirmEdit')?.checked) {
+      err.textContent = 'Tick the box to confirm which tasks can change files, or switch them back to read-only.';
+      err.hidden = false;
+      $('confirmEdit')?.focus();
+      return;
+    }
+    extra = { tasks: d.tasks.map(({ id, title, prompt, agent, mode, depends_on }) => ({ id, title: title.trim() || prompt.trim().split('\n')[0].slice(0, 120), prompt, agent, mode, depends_on })), confirmEdit: !!$('confirmEdit')?.checked };
+  }
+  try {
+    const r = await act(`/api/jobs/${j.id}/${what}`, extra);
+    if (what === 'approve') {
+      drafts.delete(j.id);
+      toast('Plan approved. The agents are starting.');
+    }
+    if (what === 'discard') {
+      drafts.delete(j.id);
+      jobs = jobs.filter((x) => x.id !== j.id);
+      closeJob();
+      return;
+    }
+    if (r.job) jobs = jobs.map((x) => (x.id === r.job.id ? r.job : x));
+    renderLead();
+  } catch (ex) {
+    if (what === 'approve' && $('planErr')) {
+      $('planErr').textContent = ex.message;
+      $('planErr').hidden = false;
+    } else toast(ex.message, true);
+  }
+  loadLead();
+}
+document.addEventListener('click', async (e) => {
+  if (e.target.closest('[data-back]')) {
+    closeJob();
+    return;
+  }
+  const oo = e.target.closest('[data-openoffice]');
+  if (oo) {
+    projectId = oo.dataset.openoffice;
+    store.set('project', projectId);
+    $('project').value = projectId;
+    go('office');
+    pollNow();
+    return;
+  }
+  const ja = e.target.closest('[data-jact]');
+  if (ja && ja.closest('#job')) {
+    ja.disabled = true;
+    await jobAction(ja.dataset.jact);
+    ja.disabled = false;
+    return;
+  }
+  const ta = e.target.closest('[data-tact]');
+  if (ta && jobId) {
+    ta.disabled = true;
+    try {
+      const r = await act(`/api/jobs/${jobId}/tasks/${ta.dataset.tid}/${ta.dataset.tact}`);
+      jobs = jobs.map((x) => (x.id === r.job.id ? r.job : x));
+      renderLead();
+    } catch (ex) {
+      toast(ex.message, true);
+    }
+    loadLead();
+  }
+});
+function renderJobFoot(j) {
+  const foot = $('jobFoot');
+  const can = !ACTIVE_JOB.has(j.status) && j.status !== 'plan-ready' && j.tasks.length > 0;
+  const key = `${j.id}|${can}`;
+  if (foot.dataset.key === key) return;
+  foot.dataset.key = key;
+  const past = (j.followups || []).map((f) => `<li><span class="sub">${esc(ago(f.at))}</span> ${esc(f.text)}</li>`).join('');
+  foot.innerHTML = can ? `<form class="talk" id="talk" novalidate><label class="field"><span class="label">Talk to the Lead</span><textarea id="lead-followup" rows="2" maxlength="4000" placeholder="For example: also add a privacy policy page"></textarea></label><div class="btns"><button type="submit" class="primary">Send to the Lead</button><span class="sub">The Lead remembers this job and proposes extra tasks for you to approve.</span></div>${past ? `<details><summary>Earlier messages</summary><ul class="past">${past}</ul></details>` : ''}</form>` : '';
+}
+$('jobFoot').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const text = $('lead-followup').value.trim();
+  if (!text) {
+    $('lead-followup').focus();
+    return;
+  }
+  e.target.querySelector('button[type="submit"]').disabled = true;
+  await jobAction('followup', { text });
+  $('jobFoot').dataset.key = '';
+});
+$('ask').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = $('askErr');
+  err.hidden = true;
+  const goal = $('lead-goal').value.trim();
+  const project = $('lead-project').value;
+  const mode = document.querySelector('input[name="lead-mode"]:checked')?.value || 'read';
+  const parallel = Number($('lead-parallel').value);
+  if (!goal) {
+    err.textContent = 'Tell the Lead what you want done.';
+    err.hidden = false;
+    $('lead-goal').focus();
+    return;
+  }
+  if (!project) {
+    err.textContent = 'Pick a project. HQ lists every folder you have used Claude Code in.';
+    err.hidden = false;
+    return;
+  }
+  $('askBtn').disabled = true;
+  try {
+    const r = await act('/api/jobs', { goal, project, mode, parallel });
+    $('lead-goal').value = '';
+    jobs = [r.job, ...jobs.filter((x) => x.id !== r.job.id)];
+    openJob(r.job.id);
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.hidden = false;
+  } finally {
+    $('askBtn').disabled = false;
+  }
+});
+document.querySelectorAll('input[name="lead-mode"]').forEach((r) => r.addEventListener('change', () => {
+  const edit = $('lead-mode-edit').checked;
+  $('askNote').textContent = edit
+    ? 'Planning only reads the project. Tasks the Lead marks as editing can change files once you approve the plan and confirm them.'
+    : 'Planning only reads the project. Nothing else runs until you approve the plan.';
+}));
+async function loadLead() {
+  clearTimeout(leadTimer);
+  if (!roster) await loadRoster(true);
+  if (!projects.length) await loadProjects();
+  fillLeadProjects();
+  try {
+    jobs = (await api('/api/jobs')).jobs || [];
+  } catch {
+    /* keep the last list */
+  }
+  if (jobId && !jobs.some((j) => j.id === jobId)) jobId = null;
+  renderLead();
+  renderLeadBadge();
+  if (tab === 'lead') {
+    const busy = jobs.some((j) => ACTIVE_JOB.has(j.status));
+    leadTimer = setTimeout(loadLead, busy ? 1500 : 6000);
+  }
+}
+function renderLeadBadge() {
+  const n = jobs.filter((j) => ['plan-ready', 'paused', 'plan-failed', 'interrupted'].includes(j.status)).length;
+  $('leadCount').hidden = !n;
+  $('leadCount').textContent = n;
+}
+function renderBusy(d) {
+  const busy = (d.busy || 0) + (d.activeJobs || 0);
+  $('stopAllBtn').hidden = !busy;
+  if (d.attention) {
+    const n = d.attention.filter((a) => a.kind === 'job').length;
+    $('leadCount').hidden = !n;
+    $('leadCount').textContent = n;
+  }
+}
+$('stopAllBtn').onclick = () => {
+  $('stopTxt').textContent = 'This stops every running Lead job and cancels every agent run HQ started, including single tasks from Dispatch. Your own Claude Code sessions are not touched. Stopped jobs can be picked up again later.';
+  $('stopDlg').showModal();
+};
+$('stopNo').onclick = () => $('stopDlg').close();
+$('stopGo').onclick = async () => {
+  $('stopGo').disabled = true;
+  try {
+    const r = await act('/api/stop-all');
+    toast(`Stopped ${r.jobs} job${r.jobs === 1 ? '' : 's'} and ${r.runs} other run${r.runs === 1 ? '' : 's'}.`);
+  } catch (ex) {
+    toast(ex.message, true);
+  } finally {
+    $('stopGo').disabled = false;
+    $('stopDlg').close();
+    pollNow();
+    if (tab === 'lead') loadLead();
+  }
+};
+
 // ------------------------------------------------------------------ share on the network
 $('shareBtn').onclick = async () => {
   const body = $('shareBody');
@@ -770,10 +1257,11 @@ addEventListener('keydown', (e) => {
   if (typing) return;
   if (document.querySelector('dialog[open]')) return;
   const k = e.key;
-  if (k >= '1' && k <= '4') go(TABS[Number(k) - 1]);
+  if (k >= '1' && k <= '5') go(TABS[Number(k) - 1]);
   else if (k === '/') {
     e.preventDefault();
     if (tab === 'dispatch') $('dispatch-task').focus();
+    else if (tab === 'lead') $('lead-goal').focus();
     else {
       go('roster');
       $('rosterSearch').focus();
@@ -788,7 +1276,7 @@ $('helpBtn').onclick = () => $('helpDlg').showModal();
 
 // ------------------------------------------------------------------ start
 updateLite();
-go((location.hash || '').slice(1) || store.get('tab', 'office'));
+go((location.hash || '').slice(1) || store.get('tab', 'lead'));
 await loadProjects();
 poll();
 setInterval(loadProjects, 30000);

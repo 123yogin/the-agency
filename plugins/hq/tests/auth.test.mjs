@@ -108,3 +108,23 @@ test('LAN access needs the key from anything but loopback', () => {
   assert.equal(lanAccess(remote({ cookie: `hq_key=${'k'.repeat(32)}` }), u(), 'k'.repeat(32)).ok, true);
   assert.equal(lanAccess(remote({ cookie: 'hq_key=wrong' }), u(), 'k'.repeat(32)).ok, false);
 });
+
+test('every Ask-the-Lead action needs the token and a same-origin request', async () => {
+  const goal = JSON.stringify({ goal: 'review the shop', project: 'nope' });
+  const paths = ['/api/jobs', '/api/jobs/abcdefabcdef/approve', '/api/jobs/abcdefabcdef/followup', '/api/jobs/abcdefabcdef/stop', '/api/jobs/abcdefabcdef/tasks/t1/retry', '/api/stop-all'];
+  for (const p of paths) {
+    const none = await call('POST', p, { headers: JSONH, body: goal });
+    assert.equal(none.status, 403, `${p} without a token`);
+    const cross = await call('POST', p, { headers: { ...JSONH, 'x-hq-token': TOKEN, origin: 'https://evil.example' }, body: goal });
+    assert.equal(cross.status, 403, `${p} cross-origin`);
+  }
+  const ok = await call('POST', '/api/stop-all', { headers: { ...JSONH, 'x-hq-token': TOKEN, origin: `http://127.0.0.1:${port}` }, body: '{}' });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(JSON.parse(ok.body), { ok: true, jobs: 0, runs: 0 });
+  const bad = await call('POST', '/api/jobs', { headers: { ...JSONH, 'x-hq-token': TOKEN }, body: goal });
+  assert.equal(bad.status, 400);
+  assert.match(JSON.parse(bad.body).error, /project/i);
+  const list = await call('GET', '/api/jobs');
+  assert.equal(list.status, 200);
+  assert.deepEqual(JSON.parse(list.body).jobs, []);
+});
