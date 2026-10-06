@@ -1,7 +1,10 @@
 {
   "name": "hq",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Agency HQ: watch every agent work in a 3D office, browse everything the agency can do, dispatch tasks with a review step, and check plugin and MCP health. Desktop and phone.",
-  "author": { "name": "Yogin Parmar", "url": "https://github.com/123yogin" },
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
   "license": "MIT"
 }

@@ -11,7 +11,7 @@ import {
   safeLine, strcmp, trim, tsMs, values,
 } from './util.mjs';
 
-const CACHE_V = 4;
+const CACHE_V = 5;
 const HEAD_MAX = 1024; // fingerprint of the file head: a replaced (not appended) file is summarised again
 const EVENTS_KEEP = 40;
 const SEGS_KEEP = 20;
@@ -147,13 +147,15 @@ export class Transcripts {
       started: s.started, updated: s.updated, tools: s.tools, tokens: s.tokens.in + s.tokens.out + s.tokens.cache,
       events: s.events, lastKind: s.lastKind, lastTool: s.lastTool, limit: s.limit, files: s.files, todos: s.todos,
       todosAt: s.todosAt, todoSource: s.todoSource, segs: s.segs, stops: s.stops, skills: s.skills, mcp: s.mcp,
-      agents: s.agents, cwd: s.cwd,
+      agents: s.agents, cwd: s.cwd, headless: s.headless === true,
     };
   }
 
   consume(s, row) {
     const type = row.type ?? '';
     if (s.cwd === null && typeof row.cwd === 'string' && row.cwd.startsWith('/')) s.cwd = row.cwd;
+    // `claude -p` runs are tagged entrypoint "sdk-cli"; nobody sits at a terminal waiting on them.
+    if (s.headless == null && typeof row.entrypoint === 'string') s.headless = row.entrypoint === 'sdk-cli';
     const t = typeof row.timestamp === 'string' && tsMs(row.timestamp) !== null ? row.timestamp : '';
     const msg = row.message;
     if (type !== 'user' && type !== 'assistant') return;
@@ -351,7 +353,7 @@ function headOf(file, n) {
 function fresh() {
   return {
     v: CACHE_V, offset: 0, headLen: 0, head: '', started: null, updated: null, tools: 0, tokens: { in: 0, out: 0, cache: 0 }, lastMsgId: null,
-    events: [], lastKind: null, lastTool: null, limit: null, files: [], todos: null, todosAt: null, todoSource: null, tasks: {}, taskSeq: 0,
+    events: [], lastKind: null, lastTool: null, headless: null, limit: null, files: [], todos: null, todosAt: null, todoSource: null, tasks: {}, taskSeq: 0,
     segs: [], stops: [], skills: {}, mcp: {}, agents: {}, cwd: null,
   };
 }

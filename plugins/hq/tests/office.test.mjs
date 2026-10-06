@@ -86,3 +86,26 @@ test('dispatched runs sit at a desk and their own session is not shown as the Le
   assert.equal(w.run.dispatched, true);
   assert.equal(s.lead.sessions, 0);
 });
+
+test('a finished background run (claude -p) is not flagged as waiting for you; a finished terminal session is', async () => {
+  const { buildState } = await import('../runtime/lib/office.mjs');
+  const { findProject } = await import('../runtime/lib/projects.mjs');
+  const make = (name, entrypoint) => {
+    const cwd = path.join(tmp, name);
+    fs.mkdirSync(cwd, { recursive: true });
+    const dir = path.join(fx.config, 'projects', cwd.replace(/[^a-zA-Z0-9]/g, '-'));
+    fs.mkdirSync(dir, { recursive: true });
+    const at = (s) => new Date(NOW - s * 1000).toISOString();
+    const rows = [
+      { type: 'user', entrypoint, timestamp: at(120), cwd, message: { role: 'user', content: 'List the files' } },
+      { type: 'assistant', entrypoint, timestamp: at(60), cwd, message: { id: `x-${name}`, role: 'assistant', content: [{ type: 'text', text: 'Done.' }], stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 5 } } },
+    ];
+    fs.writeFileSync(path.join(dir, `${name}.jsonl`), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    return findProject(cwd.replace(/[^a-zA-Z0-9]/g, '-'));
+  };
+  const bg = buildState({ project: make('bg-run', 'sdk-cli'), now: NOW });
+  assert.equal(bg.attention.length, 0, 'headless run flagged as needing you');
+  const term = buildState({ project: make('term-run', 'cli'), now: NOW });
+  assert.equal(term.attention.length, 1);
+  assert.equal(term.attention[0].kind, 'your-turn');
+});

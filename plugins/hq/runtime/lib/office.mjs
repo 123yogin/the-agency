@@ -232,7 +232,7 @@ export function buildState({ project, cacheDir = null, cfg = DEFAULTS, now, disp
 
   // ---- needs-you signals for this project
   const attention = [];
-  if (dm && lead.state !== 'working') {
+  if (dm && !dm.headless && lead.state !== 'working') {
     const age = now - tsMs(dm.updated);
     if (dm.lastKind === 'tool' && dm.lastTool === 'AskUserQuestion' && age <= cfg.attention_window * 4000) {
       attention.push({ kind: 'question', project: project.id, text: `Claude asked you a question in ${project.name}`, at: dm.updated });
