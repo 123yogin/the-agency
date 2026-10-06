@@ -1,0 +1,17 @@
+{
+  "description": "Optional autostart for Agency HQ. Does nothing unless HQ_AUTOSTART=1 is set in the environment.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/bin/hq.mjs\" autostart",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -66,6 +66,14 @@
       "license": "MIT"
     },
     {
+      "name": "hq",
+      "source": "./plugins/hq",
+      "description": "Agency HQ: a 3D office of your agents, the full roster, review-before-run dispatch, and plugin/MCP health. Desktop and phone.",
+      "version": "1.0.0",
+      "category": "dashboard",
+      "license": "MIT"
+    },
+    {
       "name": "mcp-core",
       "source": "./plugins/mcp-core",
       "description": "Keyless MCP servers that work on install: browser debugging and testing, live library docs, code graph and structural search, read-only SQL, mobile device control, document/Excel/YouTube conversion, diagrams, charts, UI components, icons.",

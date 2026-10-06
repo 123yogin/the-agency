@@ -5,7 +5,7 @@ by reviewing the most popular open-source collections and keeping only the best
 version of each role. Every file was then rewritten to one standard
 ([CONVENTIONS.md](CONVENTIONS.md)).
 
-**63 agents · 72 skills · 4 commands · 3 guard hooks · 39 MCP servers, in 15 plugins.**
+**63 agents · 73 skills · 5 commands · 3 guard hooks · 39 MCP servers · a 3D dashboard, in 16 plugins.**
 
 Sources reviewed (about 8,000 files): msitarzewski/agency-agents,
 wshobson/agents, VoltAgent/awesome-claude-code-subagents, obra/superpowers,
@@ -20,6 +20,7 @@ of those files were cut. Whatever survived was rewritten.
 /plugin install core-workflow@the-agency
 /plugin install engineering@the-agency
 /plugin install mcp-core@the-agency
+/plugin install hq@the-agency      # then type /hq
 ```
 
 Install only the plugins you need. Each one is independent.
@@ -35,6 +36,7 @@ Install only the plugins you need. Each one is independent.
 | [growth](plugins/growth) | SEO, AEO (AI citations), ASO, copy, CRO, experiments, pricing, launches, Reddit, Hacker News, LinkedIn, X, lifecycle email, outbound, support, success, SaaS metrics, fundraising, privacy and legal first drafts | yes |
 | [ai-data-docs](plugins/ai-data-docs) | MCP server building, LLM evals, RAG, prompt engineering, multi-agent design, fine-tuning, deep research, SQL and notebook analysis, statistics, data quality, docs, office files | yes |
 | [meta](plugins/meta) | Write and test your own skills and agents, agent teams (experimental), context management, decision council | yes |
+| [hq](plugins/hq) | **Agency HQ**: a 3D office where you watch every agent work, a searchable roster, a Dispatch tab where you review a task before it runs (read-only by default), and plugin/MCP health with one-click fixes. Works on a phone. Type `/hq` | yes |
 | [mcp-core](plugins/mcp-core) | 15 keyless MCP servers: Chrome DevTools, Playwright, Context7, code graph, ast-grep, Repomix, read-only SQL, mobile device control, MarkItDown, Excel, YouTube transcripts, Excalidraw, charts, shadcn/ui, icons | yes |
 | [mcp-git-hosting](plugins/mcp-git-hosting) | GitHub, GitLab | no |
 | [mcp-cloud](plugins/mcp-cloud) | Supabase, Kubernetes, AWS, Terraform (read-only by default) | no |

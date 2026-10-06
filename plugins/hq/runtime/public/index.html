@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Agency HQ</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='4' width='56' height='56' rx='12' fill='%231c6e8c'/%3E%3Crect x='14' y='18' width='10' height='28' rx='2' fill='%23fff'/%3E%3Crect x='27' y='26' width='10' height='20' rx='2' fill='%23fff'/%3E%3Crect x='40' y='12' width='10' height='34' rx='2' fill='%23f08a5d'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/assets/app.css">
+<script type="importmap">
+{ "imports": {
+  "three": "/assets/vendor/three/build/three.module.js",
+  "three/addons/": "/assets/vendor/three/examples/jsm/"
+} }
+</script>
+<!--HQ_CONFIG-->
+</head>
+<body data-tab="office">
+<a class="skip" href="#main">Skip to content</a>
+<div class="loading" id="loading" aria-hidden="true"><div>Opening HQ<i></i></div></div>
+
+<div id="scene" aria-hidden="true"></div>
+<div class="labels" id="labels" aria-hidden="true"></div>
+
+<header class="topbar" role="banner">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><span class="brand-name">Agency HQ</span></div>
+  <label class="project">
+    <span class="sr">Project</span>
+    <select id="project" title="Project (P)"></select>
+  </label>
+  <nav class="tabs" aria-label="Views">
+    <button type="button" data-go="office" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
+    <button type="button" data-go="roster"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Roster</span></button>
+    <button type="button" data-go="dispatch"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 5v14"/></svg><span>Dispatch</span><b class="count" id="dispatchCount" hidden></b></button>
+    <button type="button" data-go="health"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg><span>Health</span><b class="count warn" id="healthCount" hidden></b></button>
+  </nav>
+  <div class="tools">
+    <button type="button" class="attn" id="attnBtn" hidden aria-haspopup="dialog"><i aria-hidden="true"></i><span id="attnTxt"></span></button>
+    <span class="live" id="live" title="Connection"><i></i><span id="liveTxt">Connecting</span></span>
+    <button type="button" class="icon" id="shareBtn" title="Open on your phone"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18h2"/></svg><span class="sr">Open on your phone</span></button>
+    <button type="button" class="icon" id="themeBtn" title="Theme (T)"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg><span class="sr">Change theme</span></button>
+    <button type="button" class="icon" id="helpBtn" title="Shortcuts (?)"><span aria-hidden="true" class="q">?</span><span class="sr">Keyboard shortcuts</span></button>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+  <!-- OFFICE -->
+  <section class="view view-office" data-view="office" aria-label="Office">
+    <div class="banner" id="banner" role="status" hidden></div>
+    <aside class="panel left" id="feedPanel" aria-label="Live activity">
+      <header><h2>Live activity</h2><span class="chip" id="feedCount">0</span><button type="button" class="minbtn" data-min="left" aria-expanded="true" title="Collapse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><span class="sr">Collapse panel</span></button></header>
+      <div class="scroll"><ul class="feed" id="feed"></ul></div>
+    </aside>
+    <aside class="panel right" id="sidePanel" aria-label="History and tasks">
+      <div class="ptabs" role="tablist">
+        <button role="tab" data-ptab="runs" aria-selected="true">History <b class="n" id="nRuns">0</b></button>
+        <button role="tab" data-ptab="todo" aria-selected="false">Lead's tasks <b class="n" id="nTodo">0</b></button>
+        <button role="tab" data-ptab="feed2" aria-selected="false" class="mfeed">Activity</button>
+        <button type="button" class="minbtn" data-min="right" aria-expanded="true" title="Collapse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><span class="sr">Collapse panel</span></button>
+      </div>
+      <div class="scroll">
+        <section class="pane on" data-pane="runs" id="paneRuns"></section>
+        <section class="pane" data-pane="todo" id="paneTodo"></section>
+        <section class="pane" data-pane="feed2"><ul class="feed" id="feed2"></ul></section>
+      </div>
+    </aside>
+    <div class="cards" id="cards" aria-label="Agents in the office"></div>
+    <div class="office-tools">
+      <button type="button" class="ghost" id="homeBtn" title="Reset camera (double-click the floor)">Reset view</button>
+      <button type="button" class="ghost" id="wideBtn" title="Hide panels (H)">Hide panels</button>
+    </div>
+    <!-- lite (phones, or no WebGL) -->
+    <div class="lite" id="lite" hidden>
+      <div class="lite-status" id="liteStatus"></div>
+      <div class="lite-attn" id="liteAttn"></div>
+      <h2 class="lite-h">Agents</h2>
+      <ul class="lite-agents" id="liteAgents"></ul>
+      <h2 class="lite-h">Live activity</h2>
+      <ul class="feed lite-feed" id="liteFeed"></ul>
+      <h2 class="lite-h">History</h2>
+      <div id="liteRuns"></div>
+    </div>
+  </section>
+
+  <!-- ROSTER -->
+  <section class="view page" data-view="roster" aria-labelledby="rosterH" hidden>
+    <div class="page-head">
+      <div><h1 id="rosterH">Roster</h1><p class="sub" id="rosterSub">Everything The Agency can do.</p></div>
+      <div class="filters">
+        <label class="search"><span class="sr">Search the roster</span><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="rosterSearch" type="search" placeholder="Search agents, skills, servers" autocomplete="off"></label>
+        <div class="seg" role="group" aria-label="Show">
+          <button type="button" data-kind="all" aria-pressed="true">All</button>
+          <button type="button" data-kind="agent" aria-pressed="false">Agents</button>
+          <button type="button" data-kind="skill" aria-pressed="false">Skills</button>
+          <button type="button" data-kind="command" aria-pressed="false">Commands</button>
+          <button type="button" data-kind="mcp" aria-pressed="false">MCP</button>
+        </div>
+        <label class="check"><input type="checkbox" id="rosterInstalled"> Installed only</label>
+      </div>
+    </div>
+    <div id="rosterBody" class="roster"></div>
+  </section>
+
+  <!-- DISPATCH -->
+  <section class="view page" data-view="dispatch" aria-labelledby="dispatchH" hidden>
+    <div class="page-head"><div><h1 id="dispatchH">Dispatch</h1><p class="sub">Send a task to an agent. Nothing runs until you approve it.</p></div></div>
+    <div class="dispatch">
+      <form class="compose" id="compose" novalidate>
+        <label class="field">
+          <span class="label">What needs doing?</span>
+          <textarea id="dispatch-task" rows="4" maxlength="4000" placeholder="For example: review the checkout diff for bugs before I open a PR"></textarea>
+        </label>
+        <label class="field">
+          <span class="label">In which project?</span>
+          <select id="dispatch-project"></select>
+        </label>
+        <fieldset class="field">
+          <legend class="label">Who should do it?</legend>
+          <div id="suggest" class="suggest" aria-live="polite"></div>
+          <label class="other"><span>Or pick any agent</span><select id="dispatch-agent"></select></label>
+        </fieldset>
+        <fieldset class="field">
+          <legend class="label">What may it do?</legend>
+          <div class="modes">
+            <label class="mode"><input type="radio" name="mode" id="mode-read" value="read" checked><span><b>Read-only</b><small id="modeReadTxt"></small></span></label>
+            <label class="mode warnable"><input type="radio" name="mode" id="mode-edit" value="edit"><span><b>Can edit files</b><small id="modeEditTxt"></small></span></label>
+          </div>
+        </fieldset>
+        <div class="formerr" id="composeErr" role="alert" hidden></div>
+        <div class="actions"><button type="submit" class="primary" id="reviewBtn">Review</button></div>
+      </form>
+      <div class="runs">
+        <div class="runs-head"><h2>Runs</h2><span class="sub" id="runsSub"></span></div>
+        <div id="runList" class="runlist"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HEALTH -->
+  <section class="view page" data-view="health" aria-labelledby="healthH" hidden>
+    <div class="page-head"><div><h1 id="healthH">Health</h1><p class="sub" id="healthSub">Plugins, MCP servers and the tools they need.</p></div></div>
+    <div class="health">
+      <section class="block" aria-labelledby="hPlugins"><div class="block-head"><h2 id="hPlugins">Plugins</h2><span class="sub">Switching a plugin takes effect in new Claude Code sessions.</span></div><div id="pluginList" class="rows"></div></section>
+      <section class="block" aria-labelledby="hMcp"><div class="block-head"><h2 id="hMcp">MCP servers</h2><button type="button" class="ghost" id="mcpBtn">Check servers</button></div><p class="sub" id="mcpSub">Checking starts every configured server once, so it can take a minute.</p><div id="mcpList" class="rows"></div></section>
+      <section class="block" aria-labelledby="hPre"><div class="block-head"><h2 id="hPre">Tools on this computer</h2></div><div id="preList" class="rows"></div></section>
+    </div>
+  </section>
+</main>
+
+<nav class="bottombar" aria-label="Views">
+  <button type="button" data-go="office" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 20V9l9-5 9 5v11M8 20v-6h8v6"/></svg><span>Office</span></button>
+  <button type="button" data-go="roster"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Roster</span></button>
+  <button type="button" data-go="dispatch"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h12M12 6l6 6-6 6"/><path d="M20 5v14"/></svg><span>Dispatch</span></button>
+  <button type="button" data-go="health"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg><span>Health</span></button>
+</nav>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<dialog id="attnDlg" class="dlg" aria-labelledby="attnH">
+  <form method="dialog" class="dlg-head"><h2 id="attnH">Needs you</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
+  <ul id="attnList" class="attnlist"></ul>
+</dialog>
+<dialog id="shareDlg" class="dlg" aria-labelledby="shareH">
+  <form method="dialog" class="dlg-head"><h2 id="shareH">Open HQ on your phone</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
+  <div id="shareBody"></div>
+</dialog>
+<dialog id="helpDlg" class="dlg" aria-labelledby="helpH">
+  <form method="dialog" class="dlg-head"><h2 id="helpH">Keyboard shortcuts</h2><button class="icon" value="close" aria-label="Close">✕</button></form>
+  <dl class="keys">
+    <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Office, Roster, Dispatch, Health</dd>
+    <dt><kbd>/</kbd></dt><dd>Search the roster, or write a task on Dispatch</dd>
+    <dt><kbd>P</kbd></dt><dd>Switch project</dd>
+    <dt><kbd>N</kbd></dt><dd>Show what needs you</dd>
+    <dt><kbd>H</kbd></dt><dd>Hide or show the office panels</dd>
+    <dt><kbd>T</kbd></dt><dd>Switch light and dark theme</dd>
+    <dt><kbd>?</kbd></dt><dd>This list</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Close a dialog</dd>
+  </dl>
+  <p class="sub">In the office: drag to look around, scroll to zoom, click a person to follow them, double-click the floor to reset.</p>
+</dialog>
+
+<script type="module" src="/assets/app.js"></script>
+</body>
+</html>
