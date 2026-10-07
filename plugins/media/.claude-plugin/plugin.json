@@ -1,0 +1,12 @@
+{
+  "name": "media",
+  "version": "1.0.0",
+  "description": "Open-source image pipeline: develop RAW camera files, retouch with local AI (background removal, object erase, upscale, face restore), and emit optimized responsive WebP/AVIF. A raw-to-web skill that chains best-of-breed CLIs, plus keyless MCP servers for deterministic web optimization and AI cutouts. Commercial-safe licenses only.",
+  "author": {
+    "name": "Yogin Parmar",
+    "url": "https://github.com/123yogin"
+  },
+  "homepage": "https://github.com/123yogin/the-agency",
+  "license": "MIT",
+  "keywords": ["image", "photo", "raw", "darktable", "libvips", "sharp", "webp", "avif", "rembg", "upscale", "real-esrgan", "gfpgan", "iopaint", "comfyui"]
+}
