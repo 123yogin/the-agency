@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "image-optimizer": {
+      "command": "npx",
+      "args": ["-y", "mcp-image-optimizer"]
+    },
+    "rembg": {
+      "command": "uvx",
+      "args": ["--from", "rembg-mcp", "rembg-mcp"],
+      "env": { "REMBG_MODEL": "isnet-general-use" }
+    },
+    "comfyui": {
+      "command": "python",
+      "args": ["-m", "comfyui_mcp_server"],
+      "env": { "COMFYUI_URL": "http://127.0.0.1:8188" }
+    }
+  }
+}

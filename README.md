@@ -5,7 +5,7 @@ by reviewing the most popular open-source collections and keeping only the best
 version of each role. Every file was then rewritten to one standard
 ([CONVENTIONS.md](CONVENTIONS.md)).
 
-**63 agents · 73 skills · 5 commands · 3 guard hooks · 39 MCP servers · a 3D dashboard, in 16 plugins.**
+**63 agents · 74 skills · 5 commands · 3 guard hooks · 42 MCP servers · a 3D dashboard, in 17 plugins.**
 
 Sources reviewed (about 8,000 files): msitarzewski/agency-agents,
 wshobson/agents, VoltAgent/awesome-claude-code-subagents, obra/superpowers,
@@ -45,6 +45,7 @@ Install only the plugins you need. Each one is independent.
 | [mcp-business](plugins/mcp-business) | Stripe, n8n, PostHog, Google Analytics | no |
 | [mcp-research](plugins/mcp-research) | Tavily, Firecrawl, SearXNG | no |
 | [mcp-creative](plugins/mcp-creative) | Penpot (open-source Figma), ComfyUI (local image/video/audio), Blender, optional Figma and fal | no |
+| [media](plugins/media) | RAW→web image pipeline: develop RAW (darktable), retouch with local AI (rembg, IOPaint, Real-ESRGAN, GFPGAN), emit responsive WebP/AVIF (libvips/Sharp). A `raw-to-web` skill + keyless MCP servers. Commercial-safe licenses only | no |
 
 The off-by-default plugins ask for a key only when you enable them. Keys you
 enter are kept in your OS keychain, never in a file. Each plugin's README lists

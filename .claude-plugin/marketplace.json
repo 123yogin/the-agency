@@ -143,6 +143,15 @@
       "category": "mcp",
       "license": "MIT",
       "defaultEnabled": false
+    },
+    {
+      "name": "media",
+      "source": "./plugins/media",
+      "description": "Open-source image pipeline: develop RAW, retouch with local AI (bg removal, erase, upscale, face restore), emit responsive WebP/AVIF. A raw-to-web skill chaining best-of-breed CLIs plus keyless MCP servers. Commercial-safe licenses only.",
+      "version": "1.0.0",
+      "category": "media",
+      "license": "MIT",
+      "defaultEnabled": false
     }
   ]
 }
